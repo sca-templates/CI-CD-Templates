@@ -12,7 +12,7 @@ All shared workflows live flat in `.github/workflows/` (GitHub does not support 
 | QA Lock Check | `shared-qa-lock-check.yml` | Block merges while release PR open |
 | CodeQL | `shared-codeql.yml` | CodeQL static analysis (GitHub Actions) |
 | Scorecard | `shared-scorecard.yml` | OpenSSF Scorecard supply-chain security |
-| GitOps Promote | `shared-gitops-promote.yml` | *Not yet implemented* |
+| GitOps Promote | `shared-gitops-promote.yml` | Promote service image tags into `infra-kubernetes` (commit or PR, prod release gate) |
 
 ## Usage
 
@@ -31,11 +31,47 @@ jobs:
   release:
     uses: sca-templates/cicd-templates/.github/workflows/shared-release-flow.yml@main
     secrets:
-      RELEASE_BOT_TOKEN: ${{ secrets.RELEASE_BOT_TOKEN }}
-      RELEASE_GPG_PRIVATE_KEY: ${{ secrets.RELEASE_GPG_PRIVATE_KEY }}
+      APP_ID: ${{ secrets.APP_ID }}
+      APP_PRIVATE_KEY: ${{ secrets.APP_PRIVATE_KEY }}
 ```
 
-See [usage.md](usage.md) for full reference.
+### GitOps promote (manual dispatch wrapper)
+
+Promotions are manual. Each service repo declares a thin `workflow_dispatch` wrapper that calls the shared workflow, so a human picks the environment and image tag:
+
+```yaml
+# .github/workflows/deploy.yml in the service repo
+name: Deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        type: choice
+        options: [dev, qa, prod]
+      image-tag:
+        required: true
+        type: string
+
+jobs:
+  deploy:
+    uses: sca-templates/cicd-templates/.github/workflows/shared-gitops-promote.yml@main
+    with:
+      environment: ${{ inputs.environment }}
+      service: <service-name>
+      image-tag: ${{ inputs.image-tag }}
+    secrets: inherit
+```
+
+Behavior by environment:
+
+| Environment | Applies to `infra-kubernetes` via | Notes |
+|---|---|---|
+| dev | direct commit to `main` | fastest feedback loop |
+| qa | direct commit to `main` | team runs detailed tests |
+| prod | pull request + human approval | gated: requires an open release-please PR first |
+
+See [usage.md](usage.md) for the full reference.
 
 ## Adding a new technology
 

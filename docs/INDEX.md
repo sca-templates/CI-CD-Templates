@@ -13,8 +13,8 @@ Centralized CI/CD templates for the `sca-templates` organization.
 ```yaml
 # In your repo's .github/workflows/ci.yml
 jobs:
-  lint:
-    uses: sca-templates/cicd-templates/.github/workflows/reusable_validate-static.yml@main
+  validate:
+    uses: sca-templates/cicd-templates/.github/workflows/shared-validate-static.yml@main
   security:
-    uses: sca-templates/cicd-templates/.github/workflows/reusable_validate-security.yml@main
+    uses: sca-templates/cicd-templates/.github/workflows/shared-security-scan.yml@main
 ```
