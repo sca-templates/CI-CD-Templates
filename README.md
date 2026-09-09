@@ -32,8 +32,8 @@ Centralized, reusable CI/CD templates for the [sca-templates](https://github.com
 
 | Workflow | File | Description |
 |---|---|---|
-| Node API | `stack-node.yml` | Node.js/Express: install, lint, test |
-| Nest API | `stack-nest.yml` | NestJS: install, lint, format, test, build |
+| Node API | `stack-node.yml` | Node.js/Express: install, lint, test; optional Docker publish |
+| Nest API | `stack-nest.yml` | NestJS: install, lint, format, test, build; optional Docker publish |
 
 ### Rulesets
 

@@ -80,6 +80,34 @@ Available inputs for both (`stack-node.yml`, `stack-nest.yml`):
 | `run-format` / `format-command` | Nest only: `true` / `npm run format:check` | Format check toggle and command |
 | `run-test` / `test-command` | `true` / `npm run test:ci` | Test toggle and command |
 | `run-build` / `build-command` | Nest only: `true` / `npm run build` | Build toggle and command |
+| `run-publish` | `false` | Build and push a Docker image to GHCR |
+| `image` | *(required to publish)* | Image name without tag (e.g. `ghcr.io/sca-templates/sca-api`) |
+| `publish-tag` | `sha-<commit>` | Image tag to publish |
+| `dockerfile` | `Dockerfile` | Path to the Dockerfile |
+| `context` | `.` | Docker build context |
+| `platforms` | `linux/amd64` | Comma-separated build platforms |
+
+Publishing images to GHCR requires the **calling workflow** to grant `packages: write` in its top-level `permissions` (the reusable workflow cannot exceed it), plus the consumer repo to have `GITHUB_TOKEN` with `packages: write`. Typical release-driven wiring after the tag is created:
+
+```yaml
+# .github/workflows/build.yml in a consumer repo
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+  packages: write
+  id-token: write
+
+jobs:
+  publish:
+    uses: sca-templates/CI-CD-Templates/.github/workflows/stack-nest.yml@main
+    with:
+      image: ghcr.io/sca-templates/sca-api
+      publish-tag: ${{ github.ref_name }}
+      run-publish: true
+```
 
 ## Manual deployments (GitOps promote)
 

@@ -48,6 +48,30 @@ on:
         description: "Command to build the application"
         type: string
         default: "npm run build"
+      run-publish:
+        description: "Build and push a Docker image to the container registry"
+        type: boolean
+        default: false
+      image:
+        description: "Container image name without tag (e.g. ghcr.io/sca-templates/sca-api)"
+        type: string
+        default: ""
+      publish-tag:
+        description: "Container image tag to publish (defaults to sha-<commit>)"
+        type: string
+        default: ""
+      dockerfile:
+        description: "Path to the Dockerfile"
+        type: string
+        default: "Dockerfile"
+      context:
+        description: "Docker build context"
+        type: string
+        default: "."
+      platforms:
+        description: "Comma-separated build platforms"
+        type: string
+        default: "linux/amd64"
 
 permissions:
   contents: read
@@ -132,3 +156,46 @@ jobs:
       - name: Build
         run: ${{ inputs.build-command }}
         working-directory: ${{ inputs.working-directory }}
+
+  publish:
+    name: Publish Docker image
+    if: ${{ inputs.run-publish }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: ${{ inputs.node-version }}
+
+      - name: Install dependencies
+        run: ${{ inputs.install-command }}
+        working-directory: ${{ inputs.working-directory }}
+
+      - name: Build
+        run: ${{ inputs.build-command }}
+        working-directory: ${{ inputs.working-directory }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@e468171a9de216ec08956ac3ada2f0791b6bd435 # v3.11.1
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push
+        uses: docker/build-push-action@ee4ca427a2f43b6a16632044ca514c076267da23 # v6.19.0
+        with:
+          context: ${{ inputs.context }}
+          file: ${{ inputs.dockerfile }}
+          platforms: ${{ inputs.platforms }}
+          push: true
+          tags: ${{ inputs.image }}:${{ inputs.publish-tag || format('sha-{0}', github.sha) }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

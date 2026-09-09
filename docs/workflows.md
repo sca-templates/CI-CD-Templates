@@ -91,7 +91,7 @@ jobs:
       build-command: "npm run build"
 ```
 
-`stack-node.yml` covers plain Node.js and Express (no build step by default); `stack-nest.yml` adds formatter and TypeScript build checks. Both accept `working-directory` for monorepos and overridable `*-command` inputs.
+`stack-node.yml` covers plain Node.js and Express (no build step by default); `stack-nest.yml` adds formatter and TypeScript build checks. Both accept `working-directory` for monorepos, overridable `*-command` inputs, and an optional `publish` job (`run-publish`, `image`, `publish-tag`) that builds and pushes the Docker image to GHCR.
 
 ## Adding a new technology
 
