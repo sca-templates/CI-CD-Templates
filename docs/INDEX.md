@@ -14,7 +14,7 @@ Centralized CI/CD templates for the `sca-templates` organization.
 # In your repo's .github/workflows/ci.yml
 jobs:
   validate:
-    uses: sca-templates/cicd-templates/.github/workflows/shared-validate-static.yml@main
+    uses: sca-templates/CI-CD-Templates/.github/workflows/shared-validate-static.yml@main
   security:
-    uses: sca-templates/cicd-templates/.github/workflows/shared-security-scan.yml@main
+    uses: sca-templates/CI-CD-Templates/.github/workflows/shared-security-scan.yml@main
 ```

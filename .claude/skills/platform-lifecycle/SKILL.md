@@ -14,16 +14,16 @@ This repo provides CI/CD automation primitives consumed by all repos in the
 # Consumer repo calls this:
 jobs:
   lint:
-    uses: sca-templates/cicd-templates/.github/workflows/reusable_validate-static.yml@main
+    uses: sca-templates/CI-CD-Templates/.github/workflows/shared-validate-static.yml@main
 ```
 
 ## Adding a new reusable workflow
 
-1. Create `.github/workflows/reusable_<name>.yml` with `workflow_call` trigger.
+1. Create `.github/workflows/shared-<name>.yml` with `workflow_call` trigger.
 2. Define explicit `inputs` (type, default, description) and `secrets` if needed.
-3. Create a self-test: `.github/workflows/test_<name>.yml` that calls it.
+3. Create a self-test: `.github/workflows/self-<name>.yml` that calls it.
 4. Update `docs/workflows.md` with the new entry.
-5. Follow naming convention: `reusable_<scope>-<verb>.yml`
+5. Follow naming convention: `shared-<scope>-<verb>.yml`
 
 ## Adding a new composite action
 
@@ -38,7 +38,7 @@ jobs:
 
 ## Adding a new technology category
 
-1. Workflows: `.github/workflows/reusable_<tech>-*.yml`
+1. Workflows: `.github/workflows/stack-<tech>-*.yml`
 2. Actions: `.github/actions/<tech>/action.yml`
 3. Rulesets: `.github/rulesets/<tech>-*.json`
 4. Update all docs: `INDEX.md`, `workflows.md`, `rulesets.md`, `README.md`

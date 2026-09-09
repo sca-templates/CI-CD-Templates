@@ -8,11 +8,11 @@ This is **not** a deployable application. It is a library of automation primitiv
 
 ## Repository structure
 
-```
+```text
 .github/
 ├── workflows/        # Reusable workflows (flat, no subdirs — GitHub constraint)
-│   ├── reusable_*.yml    # Callable via workflow_call
-│   └── test_*.yml        # Self-tests
+│   ├── shared-*.yml  # Cross-repo workflows, callable via workflow_call
+│   └── self-*.yml    # This repo's own runs of the shared workflows
 ├── actions/          # Composite actions (subdirs allowed)
 │   └── <action-name>/action.yml
 ├── rulesets/         # GitHub Rulesets (JSON, API-exportable)
@@ -28,7 +28,7 @@ docs/                 # Catalog and usage docs
 
 - English only: content, commits, PR descriptions.
 - Conventional commits: `feat(templates): …`, `ci(workflows): …`, `docs(readme): …`.
-- Reusable workflows are **flat** in `.github/workflows/` — use `reusable_` prefix for naming.
+- Reusable workflows are **flat** in `.github/workflows/` — use the `shared-` prefix for cross-repo workflows and `stack-` for technology-specific ones.
 - Composite actions use subdirectories under `.github/actions/`.
 - Rulesets are JSON files exportable via the GitHub Rulesets API.
 - **Git writes are the user's**: do not `git commit`/`git push` on your own.
@@ -37,16 +37,17 @@ docs/                 # Catalog and usage docs
 ## Technology categories
 
 Technologies are identified by prefix in filenames:
-- `reusable_validate-*`, `reusable_security-*` → global (all repos)
-- `reusable_nodejs-*` → Node.js (Express, NestJS)
-- Future: `reusable_go-*`, `reusable_python-*`, etc.
+
+- `shared-*` → global (all repos): `shared-validate-static`, `shared-security-scan`, `shared-release-flow`, `shared-qa-lock-check`, `shared-codeql`, `shared-scorecard`, `shared-gitops-promote`
+- `stack-node-*` → Node.js (Express, NestJS), e.g. `stack-node-api`
+- Future: `stack-go-*`, `stack-python-*`, etc.
 
 ## How consumers use this
 
 ```yaml
 jobs:
   lint:
-    uses: sca-templates/cicd-templates/.github/workflows/reusable_validate-static.yml@main
+    uses: sca-templates/CI-CD-Templates/.github/workflows/shared-validate-static.yml@main
 ```
 
 Workflows use `workflow_call` trigger. Composite actions use `runs.using: composite`.

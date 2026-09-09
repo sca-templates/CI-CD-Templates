@@ -21,7 +21,7 @@ description: Enforce sca-docs conventions when writing or updating this reposito
    contents into docs (duplication causes drift). External links as raw URLs.
 6. **Links** — relative markdown links between `docs/` files and to the repo root.
 7. **Add new tech = update docs** — when adding a new technology category
-   (e.g. `reusable_go-*`), update `docs/workflows.md`, `docs/rulesets.md`,
+   (e.g. `stack-go-*`), update `docs/workflows.md`, `docs/rulesets.md`,
    `docs/INDEX.md`, and `README.md` in the same commit.
 
 ## Definition of done

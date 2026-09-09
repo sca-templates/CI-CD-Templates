@@ -19,17 +19,17 @@ All shared workflows live flat in `.github/workflows/` (GitHub does not support 
 ```yaml
 jobs:
   validate:
-    uses: sca-templates/cicd-templates/.github/workflows/shared-validate-static.yml@main
+    uses: sca-templates/CI-CD-Templates/.github/workflows/shared-validate-static.yml@main
     with:
       markdown-lint: true
       yaml-lint: true
       actionlint: true
 
   security:
-    uses: sca-templates/cicd-templates/.github/workflows/shared-security-scan.yml@main
+    uses: sca-templates/CI-CD-Templates/.github/workflows/shared-security-scan.yml@main
 
   release:
-    uses: sca-templates/cicd-templates/.github/workflows/shared-release-flow.yml@main
+    uses: sca-templates/CI-CD-Templates/.github/workflows/shared-release-flow.yml@main
     secrets:
       APP_ID: ${{ secrets.APP_ID }}
       APP_PRIVATE_KEY: ${{ secrets.APP_PRIVATE_KEY }}
@@ -55,7 +55,7 @@ on:
 
 jobs:
   deploy:
-    uses: sca-templates/cicd-templates/.github/workflows/shared-gitops-promote.yml@main
+    uses: sca-templates/CI-CD-Templates/.github/workflows/shared-gitops-promote.yml@main
     with:
       environment: ${{ inputs.environment }}
       service: <service-name>

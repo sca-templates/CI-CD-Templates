@@ -4,7 +4,7 @@ Centralized, reusable CI/CD templates for the [sca-templates](https://github.com
 
 ## What's inside
 
-```
+```text
 .github/
 ├── workflows/        # Shared workflows (workflow_call)
 ├── actions/          # Composite actions
@@ -44,14 +44,14 @@ on: [push, pull_request]
 
 jobs:
   validate:
-    uses: sca-templates/cicd-templates/.github/workflows/shared-validate-static.yml@main
+    uses: sca-templates/CI-CD-Templates/.github/workflows/shared-validate-static.yml@main
   security:
-    uses: sca-templates/cicd-templates/.github/workflows/shared-security-scan.yml@main
+    uses: sca-templates/CI-CD-Templates/.github/workflows/shared-security-scan.yml@main
   release:
-    uses: sca-templates/cicd-templates/.github/workflows/shared-release-flow.yml@main
+    uses: sca-templates/CI-CD-Templates/.github/workflows/shared-release-flow.yml@main
     secrets:
-      RELEASE_BOT_TOKEN: ${{ secrets.RELEASE_BOT_TOKEN }}
-      RELEASE_GPG_PRIVATE_KEY: ${{ secrets.RELEASE_GPG_PRIVATE_KEY }}
+      APP_ID: ${{ secrets.APP_ID }}
+      APP_PRIVATE_KEY: ${{ secrets.APP_PRIVATE_KEY }}
 ```
 
 See [docs/usage.md](docs/usage.md) for full reference.

@@ -14,7 +14,7 @@
 - This repo is a **library of CI/CD automation primitives** — reusable workflows,
   composite actions, and GitHub Rulesets. It is not a deployable application.
 - Reusable workflows must be **flat** in `.github/workflows/` (GitHub constraint).
-  Use `reusable_` prefix for naming.
+  Use `shared-` prefix for cross-repo workflows and `stack-` for technology-specific ones.
 - Composite actions go in subdirectories under `.github/actions/`.
 - Rulesets are JSON files in `.github/rulesets/`, exportable via the GitHub API.
 - English only: content, commits, PR descriptions.

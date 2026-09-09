@@ -15,17 +15,17 @@ on:
 
 jobs:
   validate:
-    uses: sca-templates/cicd-templates/.github/workflows/shared-validate-static.yml@main
+    uses: sca-templates/CI-CD-Templates/.github/workflows/shared-validate-static.yml@main
     with:
       markdown-lint: true
       yaml-lint: true
       actionlint: true
 
   security:
-    uses: sca-templates/cicd-templates/.github/workflows/shared-security-scan.yml@main
+    uses: sca-templates/CI-CD-Templates/.github/workflows/shared-security-scan.yml@main
 
   release:
-    uses: sca-templates/cicd-templates/.github/workflows/shared-release-flow.yml@main
+    uses: sca-templates/CI-CD-Templates/.github/workflows/shared-release-flow.yml@main
     with:
       release-type: "node"
     secrets: inherit
@@ -38,13 +38,13 @@ jobs:
 steps:
   - name: Mint release bot token
     id: app-token
-    uses: sca-templates/cicd-templates/.github/actions/mint-app-token@main
+    uses: sca-templates/CI-CD-Templates/.github/actions/mint-app-token@main
     with:
       client-id: ${{ secrets.APP_ID }}
       private-key: ${{ secrets.APP_PRIVATE_KEY }}
 
   - name: Promote image tag
-    uses: sca-templates/cicd-templates/.github/actions/gitops-bump-image@main
+    uses: sca-templates/CI-CD-Templates/.github/actions/gitops-bump-image@main
     with:
       environment: dev
       service: sca-api
@@ -72,7 +72,7 @@ on:
 
 jobs:
   deploy:
-    uses: sca-templates/cicd-templates/.github/workflows/shared-gitops-promote.yml@main
+    uses: sca-templates/CI-CD-Templates/.github/workflows/shared-gitops-promote.yml@main
     with:
       environment: ${{ inputs.environment }}
       service: <service-name>
@@ -97,13 +97,13 @@ See [rulesets.md](rulesets.md) for API and Terraform examples.
 Pin to a major version tag for auto-patches:
 
 ```yaml
-uses: sca-templates/cicd-templates/.github/workflows/shared-validate-static.yml@v1
+uses: sca-templates/CI-CD-Templates/.github/workflows/shared-validate-static.yml@v1
 ```
 
 Or pin to a SHA for maximum safety:
 
 ```yaml
-uses: sca-templates/cicd-templates/.github/workflows/shared-validate-static.yml@a1b2c3d
+uses: sca-templates/CI-CD-Templates/.github/workflows/shared-validate-static.yml@a1b2c3d
 ```
 
 ## Secrets
@@ -113,7 +113,7 @@ Most workflows accept `secrets: inherit` for internal repos. For least-privilege
 ```yaml
 jobs:
   release:
-    uses: sca-templates/cicd-templates/.github/workflows/shared-release-flow.yml@main
+    uses: sca-templates/CI-CD-Templates/.github/workflows/shared-release-flow.yml@main
     secrets:
       APP_ID: ${{ secrets.APP_ID }}
       APP_PRIVATE_KEY: ${{ secrets.APP_PRIVATE_KEY }}
