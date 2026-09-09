@@ -1,0 +1,21 @@
+---
+name: "Self: Release"
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: self-release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Release
+    uses: ./.github/workflows/shared-release-flow.yml
+    with:
+      release-type: "simple"
+    secrets: inherit

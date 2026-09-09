@@ -1,6 +1,5 @@
 ---
 name: "Shared: QA Lock Check"
-description: "Reusable workflow — blocks merges while a release-please PR is open."
 
 on:
   workflow_call:
@@ -17,9 +16,11 @@ jobs:
       - name: Check for open release-please PRs
         env:
           GH_TOKEN: ${{ github.token }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+          CURRENT_BRANCH: ${{ github.head_ref || github.ref_name }}
         run: |
           RELEASE_PR=$(gh pr list \
-            --base "${{ github.event.repository.default_branch }}" \
+            --base "${DEFAULT_BRANCH}" \
             --state open \
             --json headRefName,title \
             --jq '.[] | select(.title | startswith("chore(") and contains("release")) | .headRefName')
@@ -29,7 +30,6 @@ jobs:
             exit 0
           fi
 
-          CURRENT_BRANCH="${{ github.head_ref || github.ref_name }}"
           if [ "${CURRENT_BRANCH}" = "${RELEASE_PR}" ]; then
             echo "Current PR IS the release-please PR — merge allowed."
             exit 0

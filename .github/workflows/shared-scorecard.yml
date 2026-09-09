@@ -1,6 +1,5 @@
 ---
 name: "Shared: Scorecard"
-description: "Reusable workflow — OpenSSF Scorecard supply-chain security analysis."
 
 on:
   workflow_call:

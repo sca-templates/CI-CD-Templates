@@ -1,6 +1,5 @@
 ---
 name: "Shared: CodeQL"
-description: "Reusable workflow — CodeQL static analysis for GitHub Actions."
 
 on:
   workflow_call:

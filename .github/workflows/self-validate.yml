@@ -1,0 +1,28 @@
+---
+name: "Self: Validate"
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: self-validate-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    name: Validate
+    uses: ./.github/workflows/shared-validate-static.yml
+    with:
+      markdown-lint: true
+      yaml-lint: true
+      shell-lint: true
+      actionlint: true
+
+  qa-lock:
+    name: release-gate
+    uses: ./.github/workflows/shared-qa-lock-check.yml

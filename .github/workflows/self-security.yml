@@ -1,0 +1,40 @@
+---
+name: "Self: Security"
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+  schedule:
+    - cron: "13 8 * * 1"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: self-security-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  security:
+    name: Security
+    uses: ./.github/workflows/shared-security-scan.yml
+    with:
+      gitleaks: true
+      osv-scan: true
+      license-check: true
+      license-allowed: "MIT,Apache-2.0,ISC,BSD-2-Clause,BSD-3-Clause"
+
+  codeql:
+    name: Analyze (GitHub Actions)
+    uses: ./.github/workflows/shared-codeql.yml
+    with:
+      languages: '["actions"]'
+
+  scorecard:
+    name: Scorecards
+    if: github.event_name == 'push' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    uses: ./.github/workflows/shared-scorecard.yml
+    with:
+      publish-results: true

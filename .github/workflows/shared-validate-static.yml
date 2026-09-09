@@ -1,6 +1,5 @@
 ---
 name: "Shared: Static Validation"
-description: "Reusable workflow — markdown, YAML, shell, and actionlint validation."
 
 on:
   workflow_call:

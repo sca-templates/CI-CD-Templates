@@ -1,6 +1,5 @@
 ---
 name: "Shared: Security Scan"
-description: "Reusable workflow — secret scanning, dependency vulnerabilities, and license compliance."
 
 on:
   workflow_call:
