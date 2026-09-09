@@ -39,7 +39,8 @@ docs/                 # Catalog and usage docs
 Technologies are identified by prefix in filenames:
 
 - `shared-*` → global (all repos): `shared-validate-static`, `shared-security-scan`, `shared-release-flow`, `shared-qa-lock-check`, `shared-codeql`, `shared-scorecard`, `shared-gitops-promote`
-- `stack-node-*` → Node.js (Express, NestJS), e.g. `stack-node-api`
+- `stack-node` → Node.js/Express (install, lint, test)
+- `stack-nest` → NestJS (install, lint, format, test, build)
 - Future: `stack-go-*`, `stack-python-*`, etc.
 
 ## How consumers use this

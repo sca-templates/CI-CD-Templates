@@ -52,6 +52,35 @@ steps:
       bot-token: ${{ steps.app-token.outputs.token }}
 ```
 
+## Node and Nest stack workflows
+
+Technology-specific CI for application repos. `stack-node` targets plain Node.js/Express (install, lint, test); `stack-nest` adds format and build checks for NestJS:
+
+```yaml
+# .github/workflows/ci.yml in a NestJS consumer repo
+jobs:
+  validate:
+    uses: sca-templates/CI-CD-Templates/.github/workflows/shared-validate-static.yml@main
+
+  stack:
+    uses: sca-templates/CI-CD-Templates/.github/workflows/stack-nest.yml@main
+    with:
+      node-version: "22"
+      working-directory: "services/api"
+```
+
+Available inputs for both (`stack-node.yml`, `stack-nest.yml`):
+
+| Input | Default | Description |
+|---|---|---|
+| `node-version` | `22` | Node.js version |
+| `working-directory` | `.` | Directory containing `package.json` (monorepos) |
+| `install-command` | `npm ci` | Dependency install command |
+| `run-lint` / `lint-command` | `true` / `npm run lint` | Linter toggle and command |
+| `run-format` / `format-command` | Nest only: `true` / `npm run format:check` | Format check toggle and command |
+| `run-test` / `test-command` | `true` / `npm run test:ci` | Test toggle and command |
+| `run-build` / `build-command` | Nest only: `true` / `npm run build` | Build toggle and command |
+
 ## Manual deployments (GitOps promote)
 
 Promotion to `dev`, `qa` and `prod` is a manual action. Each service repo declares a thin `workflow_dispatch` wrapper that calls the shared workflow:

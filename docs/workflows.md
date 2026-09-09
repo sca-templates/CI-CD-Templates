@@ -13,6 +13,8 @@ All shared workflows live flat in `.github/workflows/` (GitHub does not support 
 | CodeQL | `shared-codeql.yml` | CodeQL static analysis (GitHub Actions) |
 | Scorecard | `shared-scorecard.yml` | OpenSSF Scorecard supply-chain security |
 | GitOps Promote | `shared-gitops-promote.yml` | Promote service image tags into `infra-kubernetes` (commit or PR, prod release gate) |
+| Node API | `stack-node.yml` | Node.js/Express: install, lint, test |
+| Nest API | `stack-nest.yml` | NestJS: install, lint, format, test, build |
 
 ## Usage
 
@@ -73,9 +75,27 @@ Behavior by environment:
 
 See [usage.md](usage.md) for the full reference.
 
+### Stack workflows
+
+Technology-specific workflows for application repos. Consumers call them together with the shared ones:
+
+```yaml
+jobs:
+  validate:
+    uses: sca-templates/CI-CD-Templates/.github/workflows/shared-validate-static.yml@main
+
+  test:
+    uses: sca-templates/CI-CD-Templates/.github/workflows/stack-nest.yml@main
+    with:
+      node-version: "22"
+      build-command: "npm run build"
+```
+
+`stack-node.yml` covers plain Node.js and Express (no build step by default); `stack-nest.yml` adds formatter and TypeScript build checks. Both accept `working-directory` for monorepos and overridable `*-command` inputs.
+
 ## Adding a new technology
 
-1. Create `shared_<tech>-*.yml` in `.github/workflows/`
+1. Create `stack-<tech>-*.yml` in `.github/workflows/`
 2. Add composite actions under `.github/actions/<tech>/`
 3. Add rulesets under `.github/rulesets/<tech>-*.json`
 4. Update this file, `docs/INDEX.md`, and `README.md`
