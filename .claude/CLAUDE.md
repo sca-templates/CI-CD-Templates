@@ -2,38 +2,30 @@
 
 ## Authority
 
-**AGENTS.md is authoritative for this repository.** It is the rules of
-engagement (environment model, component catalog with status, sync-waves,
-conventions, commands, troubleshooting). Read it first, then
+**AGENTS.md is authoritative for this repository.** Read it first, then
 [docs/INDEX.md](docs/INDEX.md).
-
-<!-- CODEGRAPH_START -->
-## CodeGraph
-
-In repositories indexed by CodeGraph (a `.codegraph/` directory exists at the repo root), reach for it BEFORE grep/find or reading files when you need to understand or locate code:
-
-- **MCP tool** (when available): `codegraph_explore` answers most code questions in one call — the relevant symbols' verbatim source plus the call paths between them, including dynamic-dispatch hops grep can't follow. Name a file or symbol in the query to read its current line-numbered source. If it's listed but deferred, load it by name via tool search.
-- **Shell** (always works): `codegraph explore "<symbol names or question>"` prints the same output.
-
-If there is no `.codegraph/` directory, skip CodeGraph entirely — indexing is the user's decision.
-<!-- CODEGRAPH_END -->
-
-## Authority
-
-Read **AGENTS.md**, **docs/roadmap.md** (delivery plan) and
-**docs/status.md** (current state) — they are authoritative for this repository.
-`docs/INDEX.md` is the entry point to the knowledge base.
 
 ## Working here
 
 - **The user commits and pushes — never execute `git commit`, `git push`, or
   any other git write on your own.** Draft commits/messages freely, but do not
-  stage, reset, amend or otherwise mutate git history without explicit,
-  current authorization from the user.
-- This repo is **GitOps source of truth for the `sca` platform**. It is a
-  template: no external local paths, sibling knowledge is an external link.
-- From Phase 1, `docs/` **is the source of truth**: read
-  `docs/INDEX.md` → `docs/status.md` + `docs/architecture.md` before any
-  phase work, and update them in the same commit that lands a component.
-- Repo language is English; nothing is deployed by hand after `make bootstrap`.
-- Never commit secrets: `.env`, `.secrets/`, kubeconfigs, tokens.
+  stage, reset, amend or otherwise mutate git history without explicit
+  authorization.
+- This repo is a **library of CI/CD automation primitives** — reusable workflows,
+  composite actions, and GitHub Rulesets. It is not a deployable application.
+- Reusable workflows must be **flat** in `.github/workflows/` (GitHub constraint).
+  Use `reusable_` prefix for naming.
+- Composite actions go in subdirectories under `.github/actions/`.
+- Rulesets are JSON files in `.github/rulesets/`, exportable via the GitHub API.
+- English only: content, commits, PR descriptions.
+- Never commit secrets, tokens, or credentials.
+
+## Documentation
+
+Start at [docs/INDEX.md](docs/INDEX.md). The `docs/` directory contains the
+catalog of available workflows, rulesets, and usage instructions.
+
+## Sibling repos
+
+- [infra-kubernetes](https://github.com/sca-templates/infra-kubernetes) — GitOps platform
+- [sca-docs](https://github.com/sca-templates/sca-docs) — Organization docs vault

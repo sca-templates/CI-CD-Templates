@@ -1,12 +1,18 @@
 ---
-description: Run the full validation suite — static checks plus live cluster checks.
+description: Validate all templates — YAML lint, markdown lint, and structural checks.
 agent: build
 ---
 
 # Validate
 
-Run `make validate` from the repo root and report the result. This is the
-static suite (markdownlint, YAML parse, `bash -n`, yamllint when installed)
-plus live cluster checks (ArgoCD apps Synced/Healthy, pods healthy). If the
-cluster is not up, run `make validate-static` instead and say so. On failure,
-use the `platform-lifecycle` skill to isolate, fix, then re-run.
+Run structural validation on all templates:
+
+1. **YAML lint** all `.yml`/`.yaml` files: `yamllint .github/`
+2. **Markdown lint** all `.md` files: `npx markdownlint-cli2 "**/*.md"`
+3. **Structural checks**:
+   - Every `reusable_*.yml` has `workflow_call` trigger
+   - Every `test_*.yml` calls a reusable workflow from this repo
+   - Every `.github/actions/*/action.yml` has `runs.using: composite`
+   - Every `.github/rulesets/*.json` is valid JSON with `name`, `target`, `rules`
+
+Report pass/fail for each category. Fix any failures and re-run until green.

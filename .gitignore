@@ -55,6 +55,9 @@ Temporary Items
 .apdisk
 *.icloud
 
+### Secrets ###
+.secrets/
+
 ### Obsidian ###
 .obsidian/
 

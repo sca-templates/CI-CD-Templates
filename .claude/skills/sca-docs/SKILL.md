@@ -10,36 +10,26 @@ description: Enforce sca-docs conventions when writing or updating this reposito
 ## Rules (strict)
 
 1. **English only** — all content, commit messages, PR descriptions.
-2. **One fact, one place** — depth in this repo's `docs/`, topology in the
-   vault, pointers in READMEs. Never duplicate a fact across files.
-3. **Source of truth = `docs/`.** From Phase 1, phase prompts read
-   `docs/INDEX.md` → `docs/roadmap.md` (plan/gates) + `docs/status.md`
-   (current state) + `docs/architecture.md` (catalog/waves) first, execute
-   against their gates, and update those files (plus the roadmap Work Log) in
-   the same commit that lands a component. Docs move with their code.
-4. **Truth over aspiration** — never list an un-deployed component as
-   deployed. Use explicit `planned (Phase N)` / `deployed` Status values (see
-   `docs/architecture.md`). What is not in the catalog or status does not exist.
-5. **Reference-and-explain** — point at real files; do not copy whole
-   manifests (duplication caused the historical drift). External links
-   (GitHub/sca-docs) as raw URLs, no local checkout assumed.
-6. **Environment gradient** — document `local → dev → qa → prod` explicitly
-   with each environment's profile and sync policy (see `docs/architecture.md`).
-7. **Links** — relative markdown links between `docs/` files and to the repo
-   root; wikilinks `[[…]]` only inside the vault, never here.
-8. **Roadmap Work Log** — every phase that lands appends its row in
-   `docs/roadmap.md` (phase, component, gate result, commit, issue) so the
-   roadmap records reality, not intent. The roadmap links to GitHub
-   Projects/Milestones/Issues.
+2. **One fact, one place** — depth in this repo's `docs/`, pointers in READMEs.
+   Never duplicate a fact across files.
+3. **Source of truth = `docs/`.** The `docs/` directory is the catalog and usage
+   guide. When adding or modifying templates, update the relevant doc in the
+   same commit.
+4. **Truth over aspiration** — never list a non-existent template as available.
+   What is not in the docs does not exist.
+5. **Reference-and-explain** — point at real files; do not copy whole workflow
+   contents into docs (duplication causes drift). External links as raw URLs.
+6. **Links** — relative markdown links between `docs/` files and to the repo root.
+7. **Add new tech = update docs** — when adding a new technology category
+   (e.g. `reusable_go-*`), update `docs/workflows.md`, `docs/rulesets.md`,
+   `docs/INDEX.md`, and `README.md` in the same commit.
 
 ## Definition of done
 
 - [ ] Content in English
 - [ ] No duplicated facts (cross-links instead)
-- [ ] Status values truthful (`planned` vs `deployed`), updated in the landing commit
-- [ ] Roadmap Work Log appended for landed components
-- [ ] Environment gradient documented where relevant
-- [ ] `make validate-static` passes (markdownlint, YAML parse, bash -n)
+- [ ] Docs updated when adding/modifying templates
+- [ ] `markdownlint` passes on all `.md` files
 
 ## Fetch conventions
 

@@ -1,14 +1,16 @@
 ---
-description: Show cluster, ArgoCD applications and pod health overview, plus the current state and roadmap.
+description: List all available templates — workflows, actions, and rulesets.
 agent: build
 ---
 
 # Status
 
-Run `make status` from the repo root and report the result. Every ArgoCD
-Application should be `Synced`/`Healthy` and every pod `Running`/`Completed`.
-Also point the user at `docs/status.md` (current state and known limitations)
-and `docs/roadmap.md` (the delivery plan). If
-something is off, isolate it with the guidance in the `platform-lifecycle`
-skill (OutOfSync apps, ExternalSecret errors, CrashLoopBackOff after wave
-bumps) before changing anything.
+Report the current state of all templates:
+
+1. **Reusable workflows** — list all `reusable_*.yml` in `.github/workflows/` with their inputs
+2. **Composite actions** — list all `.github/actions/*/action.yml` with their inputs
+3. **Rulesets** — list all `.github/rulesets/*.json` with their target and rules
+4. **Self-tests** — list all `test_*.yml` and which workflow they test
+5. **Docs** — check if `docs/workflows.md` and `docs/rulesets.md` match the actual files
+
+Present as a summary table. Flag any template without a corresponding doc entry.

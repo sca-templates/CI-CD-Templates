@@ -1,0 +1,48 @@
+{
+  "id": 22109692,
+  "name": "allowed-branches-only",
+  "target": "branch",
+  "source_type": "Repository",
+  "source": "sca-templates/infra-kubernetes",
+  "enforcement": "active",
+  "conditions": {
+    "ref_name": {
+      "exclude": [
+        "~DEFAULT_BRANCH",
+        "refs/heads/feat/**/*",
+        "refs/heads/feature/**/*",
+        "refs/heads/chore/**/*",
+        "refs/heads/fix/**/*",
+        "refs/heads/hotfix/**/*",
+        "refs/heads/hf/**/*",
+        "refs/heads/refactor/**/*",
+        "refs/heads/dependabot/**/*",
+        "refs/heads/copilot/**/*",
+        "refs/heads/release-please--branches--*",
+        "refs/heads/docs/**/*",
+        "refs/heads/test/**/*",
+        "refs/heads/ci/**/*",
+        "refs/heads/build/**/*",
+        "refs/heads/style/**/*"
+      ],
+      "include": [
+        "~ALL"
+      ]
+    }
+  },
+  "rules": [
+    {
+      "type": "creation"
+    },
+    {
+      "type": "update"
+    },
+    {
+      "type": "deletion"
+    },
+    {
+      "type": "non_fast_forward"
+    }
+  ],
+  "bypass_actors": []
+}
