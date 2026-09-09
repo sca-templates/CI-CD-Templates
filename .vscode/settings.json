@@ -1,0 +1,82 @@
+{
+  "editor.fontFamily": "Fira Code",
+  "editor.fontLigatures": true,
+  "editor.fontSize": 14,
+  "editor.tabSize": 2,
+  "editor.insertSpaces": true,
+  "editor.wordWrap": "off",
+  "editor.minimap.enabled": false,
+  "editor.renderWhitespace": "boundary",
+  "breadcrumbs.enabled": true,
+  "files.eol": "\n",
+  "files.insertFinalNewline": true,
+  "files.trimTrailingWhitespace": true,
+  "files.autoSave": "onFocusChange",
+  "workbench.iconTheme": "material-icon-theme",
+  "[markdown]": {
+    "editor.defaultFormatter": "yzhang.markdown-all-in-one",
+    "editor.formatOnSave": true,
+    "editor.formatOnPaste": true,
+    "editor.wordWrap": "on",
+    "files.trimTrailingWhitespace": false,
+    "editor.codeActionsOnSave": {
+      "source.fixAll.markdownlint": "explicit"
+    }
+  },
+  "markdown.extension.tableFormatter.enabled": false,
+  "markdown.extension.orderedList.marker": "one",
+  "yaml.format.enable": true,
+  "yaml.validate": true,
+  "yaml.schemaStore.enable": true,
+  "cSpell.language": "en",
+  "cSpell.enabled": true,
+  "cSpell.words": [
+    "sca",
+    "yamllint",
+    "shellcheck",
+    "markdownlint",
+    "reusable",
+    "ruleset",
+    "rulesets",
+    "workflow",
+    "workflows",
+    "composite",
+    "dependabot",
+    "CODEOWNERS",
+    "conventional",
+    "changelog",
+    "release-please",
+    "codegraph",
+    "dotenv",
+    "opencode",
+    "eslint",
+    "prettier",
+    "typescript",
+    "nodejs",
+    "pnpm"
+  ],
+  "files.exclude": {
+    ".codegraph": true
+  },
+  "search.exclude": {
+    "**/*.tgz": true
+  },
+  "files.watcherExclude": {
+    ".git/**": true
+  },
+  "material-icon-theme.folders.associations": {
+    "actions": "class",
+    "rulesets": "config",
+    "workflows": "tools",
+    "docs": "docs",
+    "opencode": "opencode",
+    "claude": "claude",
+    "skills": "skills",
+    "prompts": "tools"
+  },
+  "git.autofetch": true,
+  "git.confirmSync": false,
+  "git.enableSmartCommit": true,
+  "explorer.confirmDelete": false,
+  "explorer.confirmDragAndDrop": false
+}
