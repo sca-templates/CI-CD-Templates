@@ -1,0 +1,108 @@
+---
+name: "Shared: Static Validation"
+description: "Reusable workflow — markdown, YAML, shell, and actionlint validation."
+
+on:
+  workflow_call:
+    inputs:
+      markdown-lint:
+        description: "Run markdownlint"
+        type: boolean
+        default: true
+      yaml-lint:
+        description: "Run yamllint"
+        type: boolean
+        default: true
+      shell-lint:
+        description: "Run bash -n syntax check"
+        type: boolean
+        default: true
+      actionlint:
+        description: "Run actionlint on workflows"
+        type: boolean
+        default: true
+      node-version:
+        description: "Node.js version for markdownlint"
+        type: string
+        default: "22"
+      python-version:
+        description: "Python version for yamllint"
+        type: string
+        default: "3.x"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: validate-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  markdown:
+    name: Markdown
+    if: ${{ inputs.markdown-lint }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: ${{ inputs.node-version }}
+
+      - name: markdownlint
+        run: npx --yes markdownlint-cli2 "**/*.md"
+
+      - name: markdown-link-check
+        run: |
+          status=0
+          for f in $(find . -name '*.md' -not -path './node_modules/*' -not -path './.opencode/*'); do
+            npx --yes markdown-link-check "$f" || status=1
+          done
+          exit $status
+
+  yaml-shell:
+    name: YAML and Shell
+    if: ${{ inputs.yaml-lint || inputs.shell-lint }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        if: ${{ inputs.yaml-lint }}
+        with:
+          python-version: ${{ inputs.python-version }}
+
+      - name: yamllint
+        if: ${{ inputs.yaml-lint }}
+        run: |
+          pip install --disable-pip-version-check yamllint
+          yamllint -c .yamllint.yaml .
+
+      - name: bash -n
+        if: ${{ inputs.shell-lint }}
+        run: |
+          status=0
+          for f in $(find . -name '*.sh' -not -path './node_modules/*'); do
+            bash -n "$f" || status=1
+          done
+          exit $status
+
+  actionlint-job:
+    name: Analyze (GitHub Actions)
+    if: ${{ inputs.actionlint }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Install actionlint
+        run: |
+          ACTIONLINT_VERSION="v1.7.12"
+          ACTIONLINT_SHA256="8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8"
+          curl -fsSL "https://github.com/rhysd/actionlint/releases/download/${ACTIONLINT_VERSION}/actionlint_1.7.12_linux_amd64.tar.gz" \
+            -o /tmp/actionlint.tar.gz
+          printf '%s  %s\n' "${ACTIONLINT_SHA256}" /tmp/actionlint.tar.gz | sha256sum -c -
+          tar -xzf /tmp/actionlint.tar.gz -C /tmp actionlint
+          sudo install -m 0755 /tmp/actionlint /usr/local/bin/actionlint
+
+      - name: actionlint
+        run: actionlint -color

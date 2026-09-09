@@ -6,7 +6,7 @@ Centralized, reusable CI/CD templates for the [sca-templates](https://github.com
 
 ```
 .github/
-├── workflows/        # Reusable workflows (workflow_call)
+├── workflows/        # Shared workflows (workflow_call)
 ├── actions/          # Composite actions
 ├── rulesets/         # GitHub Rulesets (JSON, API-exportable)
 ├── ISSUE_TEMPLATE/   # Issue templates
@@ -17,51 +17,44 @@ Centralized, reusable CI/CD templates for the [sca-templates](https://github.com
 
 ## Available templates
 
-### Global
+### Shared workflows
 
-| Type | Name | File |
+| Workflow | File | Description |
 |---|---|---|
-| Workflow | Static Validation | `reusable_validate-static.yml` |
-| Workflow | Security Validation | `reusable_validate-security.yml` |
-| Ruleset | Main Protected | `global-main.json` |
-| Ruleset | Branch Naming | `global-pr-branch-naming.json` |
+| Static Validation | `shared-validate-static.yml` | Markdown, YAML, shell, actionlint |
+| Security Scan | `shared-security-scan.yml` | gitleaks, osv-scanner, license check |
+| Release Flow | `shared-release-flow.yml` | release-please + signed tags |
+| QA Lock Check | `shared-qa-lock-check.yml` | Block merges while release PR open |
+| CodeQL | `shared-codeql.yml` | CodeQL static analysis (GitHub Actions) |
+| Scorecard | `shared-scorecard.yml` | OpenSSF Scorecard supply-chain security |
 
-### Node.js
+### Rulesets
 
-| Type | Name | File |
+| Ruleset | File | Description |
 |---|---|---|
-| Workflow | Node.js CI | `reusable_nodejs-ci.yml` |
-| Workflow | Node.js Release | `reusable_nodejs-release.yml` |
-| Action | Setup Node.js | `actions/setup-nodejs/` |
-| Action | Run Linters | `actions/run-linters/` |
-| Action | Security Scan | `actions/security-scan/` |
-| Ruleset | PR Quality | `nodejs-pr-quality.json` |
+| Main Protected | `main-protected.json` | Require review, squash merge, status checks |
+| Branch Naming | `allowed-branches-only.json` | Enforce branch naming conventions |
 
 ## Quick start
 
 ```yaml
 # .github/workflows/ci.yml in your repo
+name: CI
+on: [push, pull_request]
+
 jobs:
   validate:
-    uses: sca-templates/cicd-templates/.github/workflows/reusable_validate-static.yml@main
+    uses: sca-templates/cicd-templates/.github/workflows/shared-validate-static.yml@main
   security:
-    uses: sca-templates/cicd-templates/.github/workflows/reusable_validate-security.yml@main
-  nodejs:
-    uses: sca-templates/cicd-templates/.github/workflows/reusable_nodejs-ci.yml@main
-    with:
-      node-version: "20"
+    uses: sca-templates/cicd-templates/.github/workflows/shared-security-scan.yml@main
+  release:
+    uses: sca-templates/cicd-templates/.github/workflows/shared-release-flow.yml@main
+    secrets:
+      RELEASE_BOT_TOKEN: ${{ secrets.RELEASE_BOT_TOKEN }}
+      RELEASE_GPG_PRIVATE_KEY: ${{ secrets.RELEASE_GPG_PRIVATE_KEY }}
 ```
 
 See [docs/usage.md](docs/usage.md) for full reference.
-
-## Adding a new technology
-
-1. Add workflows: `.github/workflows/reusable_<tech>-*.yml`
-2. Add actions: `.github/actions/<tech>/action.yml`
-3. Add rulesets: `.github/rulesets/<tech>-*.json`
-4. Add issue templates: `.github/ISSUE_TEMPLATE/` (tech-specific)
-5. Self-test: `.github/workflows/test_<tech>-*.yml`
-6. Update docs
 
 ## Documentation
 

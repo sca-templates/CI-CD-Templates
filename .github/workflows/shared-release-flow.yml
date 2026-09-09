@@ -1,0 +1,73 @@
+---
+name: "Shared: Release Flow"
+description: "Reusable workflow — release-please + signed tags."
+
+on:
+  workflow_call:
+    inputs:
+      release-type:
+        description: "release-please release type (simple, node, java, etc.)"
+        type: string
+        default: "simple"
+    secrets:
+      RELEASE_BOT_TOKEN:
+        description: "GitHub App token for release-please (needs contents: write, pull-requests: write)"
+        required: true
+      RELEASE_GPG_PRIVATE_KEY:
+        description: "GPG private key for signing release tags"
+        required: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Release
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    outputs:
+      releases_created: ${{ steps.release.outputs.releases_created }}
+      tag_name: ${{ steps.release.outputs.tag_name }}
+    steps:
+      - uses: google-github-actions/release-please-action@e4dc86ba9405554aeba3c6bb2d169500e7d3b4ee # v4.1.1
+        id: release
+        with:
+          release-type: ${{ inputs.release-type }}
+
+  sign-tag:
+    name: Sign Tag
+    needs: release
+    if: ${{ needs.release.outputs.releases_created == 'true' && secrets.RELEASE_GPG_PRIVATE_KEY != '' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        id: app-token
+        with:
+          app-id: ${{ vars.RELEASE_BOT_APP_ID }}
+          private-key: ${{ secrets.RELEASE_BOT_TOKEN }}
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          token: ${{ steps.app-token.outputs.token }}
+          fetch-depth: 0
+
+      - name: Import GPG key
+        uses: crazy-max/ghaction-import-gpg@2dc316deee8e90f13e1a351ab510b4d5bc0c82cd # v7.0.0
+        with:
+          gpg_private_key: ${{ secrets.RELEASE_GPG_PRIVATE_KEY }}
+          passphrase: ""
+
+      - name: Sign and force-push tag
+        run: |
+          TAG="${{ needs.release.outputs.tag_name }}"
+          git tag -f -s "${TAG}" -m "Release ${TAG}"
+          git push origin "${TAG}" --force
