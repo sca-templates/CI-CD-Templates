@@ -1,0 +1,98 @@
+### dotenv ###
+.env
+
+### Git ###
+*.orig
+.git-local/
+*.BACKUP.*
+*.BASE.*
+*.LOCAL.*
+*.REMOTE.*
+*_BACKUP_*.txt
+*_BASE_*.txt
+*_LOCAL_*.txt
+*_REMOTE_*.txt
+
+### Images ###
+*.jpg
+*.jpeg
+*.png
+*.gif
+*.svg
+*.svgz
+*.ico
+*.bmp
+*.webp
+*.tiff
+
+### LibreOffice ###
+.~lock.*#
+
+### Linux ###
+*~
+.fuse_hidden*
+.directory
+.Trash-*
+.nfs*
+
+### macOS ###
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon
+._*
+.DocumentRevisions-V100
+.fseventsd
+.Spotlight-V100
+.TemporaryItems
+.Trashes
+.VolumeIcon.icns
+.com.apple.timemachine.donotpresent
+.AppleDB
+.AppleDesktop
+Network Trash Folder
+Temporary Items
+.apdisk
+*.icloud
+
+### Obsidian ###
+.obsidian/
+
+### Video ###
+*.3g2 *.3gp *.asf *.asx *.avi *.flv *.mkv *.mov *.mp4 *.mpg *.ogv *.rm *.swf *.vob *.wmv *.webm
+
+### Audio ###
+*.aif *.iff *.m3u *.m4a *.mid *.mp3 *.mpa *.ra *.wav *.wma *.ogg *.flac
+
+### VisualStudioCode ###
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+!.vscode/*.code-snippets
+.history/
+*.vsix
+.ionide
+
+### Node.js ###
+node_modules/
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+### Logs ###
+logs/
+*.log
+*.log.*
+
+### OS ###
+Thumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+*.stackdump
+
+### Custom ###
+0.Project_info
+.codegraph/
+.env.secrets
