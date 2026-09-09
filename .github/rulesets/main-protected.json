@@ -48,19 +48,7 @@
             "integration_id": 15368
           },
           {
-            "context": "Kubernetes and Helm",
-            "integration_id": 15368
-          },
-          {
             "context": "Secrets (gitleaks)",
-            "integration_id": 15368
-          },
-          {
-            "context": "IaC (checkov)",
-            "integration_id": 15368
-          },
-          {
-            "context": "Guard policies",
             "integration_id": 15368
           },
           {
