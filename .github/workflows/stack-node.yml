@@ -1,0 +1,80 @@
+---
+name: "Stack: Node"
+
+on:
+  workflow_call:
+    inputs:
+      node-version:
+        description: "Node.js version to use"
+        type: string
+        default: "22"
+      working-directory:
+        description: "Directory containing package.json"
+        type: string
+        default: "."
+      install-command:
+        description: "Command to install dependencies"
+        type: string
+        default: "npm ci"
+      run-lint:
+        description: "Run the linter"
+        type: boolean
+        default: true
+      lint-command:
+        description: "Command to run the linter"
+        type: string
+        default: "npm run lint"
+      run-test:
+        description: "Run the test suite"
+        type: boolean
+        default: true
+      test-command:
+        description: "Command to run the test suite"
+        type: string
+        default: "npm run test:ci"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: stack-node-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    name: Lint
+    if: ${{ inputs.run-lint }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: ${{ inputs.node-version }}
+
+      - name: Install dependencies
+        run: ${{ inputs.install-command }}
+        working-directory: ${{ inputs.working-directory }}
+
+      - name: Lint
+        run: ${{ inputs.lint-command }}
+        working-directory: ${{ inputs.working-directory }}
+
+  test:
+    name: Test
+    if: ${{ inputs.run-test }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: ${{ inputs.node-version }}
+
+      - name: Install dependencies
+        run: ${{ inputs.install-command }}
+        working-directory: ${{ inputs.working-directory }}
+
+      - name: Test
+        run: ${{ inputs.test-command }}
+        working-directory: ${{ inputs.working-directory }}
