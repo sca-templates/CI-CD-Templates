@@ -1,0 +1,19 @@
+{
+  "release-type": "simple",
+  "bump-minor-pre-major": true,
+  "include-v-in-tag": true,
+  "changelog-path": "CHANGELOG.md",
+  "packages": {
+    ".": {
+      "exclude-paths": [
+        "0.Project_info",
+        ".vscode",
+        ".claude",
+        ".opencode",
+        ".gemini",
+        ".cursor",
+        ".codegraph"
+      ]
+    }
+  }
+}
