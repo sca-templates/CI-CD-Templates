@@ -6,8 +6,8 @@ GitHub Rulesets in JSON format, exportable via the GitHub API.
 
 | Ruleset | File | Target | Description |
 |---|---|---|---|
-| Main Protected | `global-main.json` | `main` branch | Require review, squash merge, no force-push |
-| Branch Naming | `global-pr-branch-naming.json` | All branches | Enforce `feat/**`, `fix/**`, `chore/**` pattern |
+| Main Protected | `main-protected.json` | default branch | Require review, squash merge, status checks, no force-push |
+| Branch Naming | `allowed-branches-only.json` | All other branches | Enforce `feat/**`, `fix/**`, `chore/**` naming pattern |
 
 ## Node.js
 
@@ -38,6 +38,16 @@ as job `Validate`:
 For a direct (non-reusable) job, use the bare job name.
 
 ## Applying rulesets
+
+### Via the setup script
+
+`scripts/setup-rulesets.sh` normalizes the exported JSON (drops response-only
+fields like `id`/`source`, collapses status checks to plain contexts) and
+creates or updates every `.github/rulesets/*.json` in the target repository:
+
+```bash
+gh auth login && ./scripts/setup-rulesets.sh sca-templates/CI-CD-Templates
+```
 
 ### Via API
 

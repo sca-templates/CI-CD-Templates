@@ -40,15 +40,14 @@ jobs:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     permissions:
-      contents: write
-      pull-requests: write
+      contents: read
     outputs:
       releases_created: ${{ steps.release.outputs.releases_created }}
       tag_name: ${{ steps.release.outputs.tag_name }}
     steps:
       - name: Mint release-bot token
         id: app-token
-        uses: sca-templates/CI-CD-Templates/.github/actions/mint-app-token@main
+        uses: sca-templates/CI-CD-Templates/.github/actions/mint-app-token@66755baa61ec4d5134e0f63f693bcff8722c1759
         with:
           client-id: ${{ secrets.APP_ID }}
           private-key: ${{ secrets.APP_PRIVATE_KEY }}
@@ -70,13 +69,13 @@ jobs:
     if: ${{ needs.release.outputs.releases_created == 'true' }}
     runs-on: ubuntu-latest
     permissions:
-      contents: write
+      contents: read
     env:
       GPG_PRIVATE_KEY: ${{ secrets.RELEASE_GPG_PRIVATE_KEY }}
     steps:
       - name: Mint release-bot token
         id: app-token
-        uses: sca-templates/CI-CD-Templates/.github/actions/mint-app-token@main
+        uses: sca-templates/CI-CD-Templates/.github/actions/mint-app-token@66755baa61ec4d5134e0f63f693bcff8722c1759
         with:
           client-id: ${{ secrets.APP_ID }}
           private-key: ${{ secrets.APP_PRIVATE_KEY }}

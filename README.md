@@ -2,6 +2,8 @@
 
 Centralized, reusable CI/CD templates for the [sca-templates](https://github.com/sca-templates) organization. Global and technology-specific workflows, composite actions, and GitHub Rulesets.
 
+[![OpenSSF Best Practices](https://bestpractices.coreinfrastructure.org/projects/<enrollment-id>/badge?style=for-the-badge)](https://bestpractices.coreinfrastructure.org/projects/<enrollment-id>)
+
 ## What's inside
 
 ```text
@@ -21,7 +23,7 @@ Centralized, reusable CI/CD templates for the [sca-templates](https://github.com
 
 | Workflow | File | Description |
 |---|---|---|
-| Static Validation | `shared-validate-static.yml` | Markdown, YAML, shell, actionlint |
+| Static Validation | `shared-validate-static.yml` | Markdown, YAML, shell, actionlint, template structure tests |
 | Security Scan | `shared-security-scan.yml` | gitleaks, osv-scanner, license check |
 | Release Flow | `shared-release-flow.yml` | release-please + signed tags |
 | QA Lock Check | `shared-qa-lock-check.yml` | Block merges while release PR open |
@@ -32,8 +34,9 @@ Centralized, reusable CI/CD templates for the [sca-templates](https://github.com
 
 | Workflow | File | Description |
 |---|---|---|
-| Node API | `stack-node.yml` | Node.js/Express: install, lint, test; optional Docker publish |
-| Nest API | `stack-nest.yml` | NestJS: install, lint, format, test, build; optional Docker publish |
+| Node.js | `stack-node-js.yml` | JavaScript/Express: install, lint, test; optional publish |
+| Node TypeScript | `stack-node-ts.yml` | TypeScript: install, lint, test, build; optional publish |
+| Nest | `stack-nest.yml` | NestJS: install, lint, format, test, build; optional publish |
 
 ### Rulesets
 

@@ -49,13 +49,13 @@ jobs:
           node-version: ${{ inputs.node-version }}
 
       - name: markdownlint
-        run: npx --yes markdownlint-cli2 "**/*.md"
+        run: npx --yes markdownlint-cli2@0.23.2 "**/*.md"
 
       - name: markdown-link-check
         run: |
           status=0
           while IFS= read -r -d '' f; do
-            npx --yes markdown-link-check "$f" || status=1
+            npx --yes markdown-link-check@3.15.0 --config .markdown-link-check.json "$f" || status=1
           done < <(find . -name '*.md' -not -path './node_modules/*' -not -path './.opencode/*' -not -path './.claude/*' -print0)
           exit "$status"
 
@@ -74,7 +74,7 @@ jobs:
       - name: yamllint
         if: ${{ inputs.yaml-lint }}
         run: |
-          pip install --disable-pip-version-check yamllint
+          pip install --disable-pip-version-check 'yamllint==1.38.0'
           yamllint -c .yamllint.yaml .
 
       - name: bash -n
@@ -85,6 +85,15 @@ jobs:
             bash -n "$f" || status=1
           done < <(find . -name '*.sh' -not -path './node_modules/*' -print0)
           exit "$status"
+
+  template-tests:
+    name: Test templates
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Test template invariants
+        run: ./scripts/test-templates.sh
 
   actionlint-job:
     name: Analyze (GitHub Actions)

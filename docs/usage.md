@@ -52,9 +52,9 @@ steps:
       bot-token: ${{ steps.app-token.outputs.token }}
 ```
 
-## Node and Nest stack workflows
+## Node, TypeScript and Nest stack workflows
 
-Technology-specific CI for application repos. `stack-node` targets plain Node.js/Express (install, lint, test); `stack-nest` adds format and build checks for NestJS:
+Technology-specific CI for application repos. Pick the template for your stack — `stack-node-js` (JavaScript), `stack-node-ts` (TypeScript, adds a build step) or `stack-nest` (NestJS, adds format and build checks):
 
 ```yaml
 # .github/workflows/ci.yml in a NestJS consumer repo
@@ -69,23 +69,26 @@ jobs:
       working-directory: "services/api"
 ```
 
-Available inputs for both (`stack-node.yml`, `stack-nest.yml`):
+All three templates use the **same fixed commands** (`npm ci`, `npm run lint`, `npm run format:check`, `npm run test:ci`, `npm run build`) toggled by booleans. There are no free-form command inputs.
+
+Available inputs:
 
 | Input | Default | Description |
 |---|---|---|
 | `node-version` | `22` | Node.js version |
 | `working-directory` | `.` | Directory containing `package.json` (monorepos) |
-| `install-command` | `npm ci` | Dependency install command |
-| `run-lint` / `lint-command` | `true` / `npm run lint` | Linter toggle and command |
-| `run-format` / `format-command` | Nest only: `true` / `npm run format:check` | Format check toggle and command |
-| `run-test` / `test-command` | `true` / `npm run test:ci` | Test toggle and command |
-| `run-build` / `build-command` | Nest only: `true` / `npm run build` | Build toggle and command |
+| `run-lint` | `true` | Run `npm run lint` |
+| `run-format` | node-ts: `false`; nest: `true` | Run `npm run format:check` |
+| `run-test` | `true` | Run `npm run test:ci` |
+| `run-build` | node-ts/nest: `true` | Run `npm run build` |
 | `run-publish` | `false` | Build and push a Docker image to GHCR |
 | `image` | *(required to publish)* | Image name without tag (e.g. `ghcr.io/sca-templates/sca-api`) |
 | `publish-tag` | `sha-<commit>` | Image tag to publish |
 | `dockerfile` | `Dockerfile` | Path to the Dockerfile |
 | `context` | `.` | Docker build context |
 | `platforms` | `linux/amd64` | Comma-separated build platforms |
+
+> **Migration:** `stack-node.yml` was replaced by `stack-node-js.yml` and `stack-node-ts.yml`. Custom `*-command` inputs are gone; consumers must use the standard scripts listed above and toggle steps with the boolean inputs.
 
 Publishing images to GHCR requires the **calling workflow** to grant `packages: write` in its top-level `permissions` (the reusable workflow cannot exceed it), plus the consumer repo to have `GITHUB_TOKEN` with `packages: write`. Typical release-driven wiring after the tag is created:
 

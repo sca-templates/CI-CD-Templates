@@ -1,0 +1,8 @@
+{
+  "ignorePatterns": [
+    {
+      "pattern": "^https://bestpractices\\.coreinfrastructure\\.org/projects/",
+      "reason": "Best Practices badge URL is filled in after enrollment"
+    }
+  ]
+}

@@ -104,7 +104,7 @@ jobs:
     steps:
       - name: Mint release bot token
         id: app-token
-        uses: sca-templates/CI-CD-Templates/.github/actions/mint-app-token@main
+        uses: sca-templates/CI-CD-Templates/.github/actions/mint-app-token@66755baa61ec4d5134e0f63f693bcff8722c1759
         with:
           client-id: ${{ secrets.APP_ID }}
           private-key: ${{ secrets.APP_PRIVATE_KEY }}
@@ -128,7 +128,7 @@ jobs:
 
       - name: Promote image tag
         id: bump
-        uses: sca-templates/CI-CD-Templates/.github/actions/gitops-bump-image@main
+        uses: sca-templates/CI-CD-Templates/.github/actions/gitops-bump-image@66755baa61ec4d5134e0f63f693bcff8722c1759
         with:
           environment: ${{ inputs.environment }}
           service: ${{ inputs.service }}
