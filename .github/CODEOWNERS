@@ -1,0 +1,11 @@
+# Default code owners for Pull Requests.
+#
+# Types of owners that want a review request before merge.
+# That way you don't have to guess who to ask for a review.
+#
+# Owners defined here:
+#   * must be a user or team in the sca-templates organization
+#   * will be requested for review as code owners automatically.
+
+# Global owners — set by the repository administrator.
+*       @Santiago1010

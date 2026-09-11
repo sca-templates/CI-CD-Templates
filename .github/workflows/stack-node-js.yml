@@ -1,5 +1,5 @@
 ---
-name: "Stack: Nest"
+name: "Stack: Node.js"
 
 on:
   workflow_call:
@@ -19,7 +19,7 @@ on:
       run-format:
         description: "Run the format check (npm run format:check)"
         type: boolean
-        default: true
+        default: false
       run-test:
         description: "Run the test suite (npm run test:ci)"
         type: boolean
@@ -27,7 +27,7 @@ on:
       run-build:
         description: "Run the build step (npm run build)"
         type: boolean
-        default: true
+        default: false
       run-publish:
         description: "Build and push a Docker image to the container registry"
         type: boolean
@@ -57,7 +57,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: stack-nest-${{ github.head_ref || github.ref }}
+  group: stack-node-js-${{ github.head_ref || github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -153,10 +153,6 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
-        working-directory: ${{ inputs.working-directory }}
-
-      - name: Build
-        run: npm run build
         working-directory: ${{ inputs.working-directory }}
 
       - name: Set up Docker Buildx

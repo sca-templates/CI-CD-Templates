@@ -10,10 +10,7 @@ on:
     - cron: "13 8 * * 1"
 
 permissions:
-  actions: read
   contents: read
-  id-token: write
-  security-events: write
 
 concurrency:
   group: self-security-${{ github.head_ref || github.ref }}

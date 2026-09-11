@@ -1,5 +1,5 @@
 ---
-name: "Stack: Node"
+name: "Stack: Node TypeScript"
 
 on:
   workflow_call:
@@ -12,26 +12,22 @@ on:
         description: "Directory containing package.json"
         type: string
         default: "."
-      install-command:
-        description: "Command to install dependencies"
-        type: string
-        default: "npm ci"
       run-lint:
-        description: "Run the linter"
+        description: "Run the linter (npm run lint)"
         type: boolean
         default: true
-      lint-command:
-        description: "Command to run the linter"
-        type: string
-        default: "npm run lint"
+      run-format:
+        description: "Run the format check (npm run format:check)"
+        type: boolean
+        default: false
       run-test:
-        description: "Run the test suite"
+        description: "Run the test suite (npm run test:ci)"
         type: boolean
         default: true
-      test-command:
-        description: "Command to run the test suite"
-        type: string
-        default: "npm run test:ci"
+      run-build:
+        description: "Run the build step (npm run build)"
+        type: boolean
+        default: true
       run-publish:
         description: "Build and push a Docker image to the container registry"
         type: boolean
@@ -61,7 +57,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: stack-node-${{ github.head_ref || github.ref }}
+  group: stack-node-ts-${{ github.head_ref || github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -77,11 +73,30 @@ jobs:
           node-version: ${{ inputs.node-version }}
 
       - name: Install dependencies
-        run: ${{ inputs.install-command }}
+        run: npm ci
         working-directory: ${{ inputs.working-directory }}
 
       - name: Lint
-        run: ${{ inputs.lint-command }}
+        run: npm run lint
+        working-directory: ${{ inputs.working-directory }}
+
+  format:
+    name: Format
+    if: ${{ inputs.run-format }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: ${{ inputs.node-version }}
+
+      - name: Install dependencies
+        run: npm ci
+        working-directory: ${{ inputs.working-directory }}
+
+      - name: Format
+        run: npm run format:check
         working-directory: ${{ inputs.working-directory }}
 
   test:
@@ -96,11 +111,30 @@ jobs:
           node-version: ${{ inputs.node-version }}
 
       - name: Install dependencies
-        run: ${{ inputs.install-command }}
+        run: npm ci
         working-directory: ${{ inputs.working-directory }}
 
       - name: Test
-        run: ${{ inputs.test-command }}
+        run: npm run test:ci
+        working-directory: ${{ inputs.working-directory }}
+
+  build:
+    name: Build
+    if: ${{ inputs.run-build }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: ${{ inputs.node-version }}
+
+      - name: Install dependencies
+        run: npm ci
+        working-directory: ${{ inputs.working-directory }}
+
+      - name: Build
+        run: npm run build
         working-directory: ${{ inputs.working-directory }}
 
   publish:
@@ -118,7 +152,11 @@ jobs:
           node-version: ${{ inputs.node-version }}
 
       - name: Install dependencies
-        run: ${{ inputs.install-command }}
+        run: npm ci
+        working-directory: ${{ inputs.working-directory }}
+
+      - name: Build
+        run: npm run build
         working-directory: ${{ inputs.working-directory }}
 
       - name: Set up Docker Buildx

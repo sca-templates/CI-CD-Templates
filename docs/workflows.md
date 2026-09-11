@@ -13,8 +13,9 @@ All shared workflows live flat in `.github/workflows/` (GitHub does not support 
 | CodeQL | `shared-codeql.yml` | CodeQL static analysis (GitHub Actions) |
 | Scorecard | `shared-scorecard.yml` | OpenSSF Scorecard supply-chain security |
 | GitOps Promote | `shared-gitops-promote.yml` | Promote service image tags into `infra-kubernetes` (commit or PR, prod release gate) |
-| Node API | `stack-node.yml` | Node.js/Express: install, lint, test |
-| Nest API | `stack-nest.yml` | NestJS: install, lint, format, test, build |
+| Node.js | `stack-node-js.yml` | JavaScript/Express: install, lint, test; optional publish |
+| Node TypeScript | `stack-node-ts.yml` | TypeScript: install, lint, test, build; optional publish |
+| Nest | `stack-nest.yml` | NestJS: install, lint, format, test, build; optional publish |
 
 ## Usage
 
@@ -88,10 +89,11 @@ jobs:
     uses: sca-templates/CI-CD-Templates/.github/workflows/stack-nest.yml@main
     with:
       node-version: "22"
-      build-command: "npm run build"
 ```
 
-`stack-node.yml` covers plain Node.js and Express (no build step by default); `stack-nest.yml` adds formatter and TypeScript build checks. Both accept `working-directory` for monorepos, overridable `*-command` inputs, and an optional `publish` job (`run-publish`, `image`, `publish-tag`) that builds and pushes the Docker image to GHCR.
+`stack-node-js.yml` covers plain JavaScript and Express; `stack-node-ts.yml` adds a build step for TypeScript projects; `stack-nest.yml` adds formatter and build checks for NestJS. The three use the **same fixed commands** (`npm ci`, `npm run lint`, `npm run format:check`, `npm run test:ci`, `npm run build`) toggled by booleans — there are no free-form `*-command` inputs. All accept `working-directory` for monorepos and an optional `publish` job (`run-publish`, `image`, `publish-tag`) that builds and pushes the Docker image to GHCR.
+
+> **Migration:** `stack-node.yml` was replaced by `stack-node-js.yml` and `stack-node-ts.yml`. If you called `stack-node` with custom `*-command` inputs, switch to the matching template and align your `package.json` scripts with the fixed commands above.
 
 ## Adding a new technology
 
