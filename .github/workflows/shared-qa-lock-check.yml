@@ -20,6 +20,7 @@ jobs:
           CURRENT_BRANCH: ${{ github.head_ref || github.ref_name }}
         run: |
           RELEASE_PR=$(gh pr list \
+            --repo "${GITHUB_REPOSITORY}" \
             --base "${DEFAULT_BRANCH}" \
             --state open \
             --json headRefName,title \
