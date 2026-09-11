@@ -6,6 +6,7 @@ Centralized CI/CD templates for the `sca-templates` organization.
 
 - [Workflows](workflows.md) — Reusable workflow catalog
 - [Rulesets](rulesets.md) — GitHub Rulesets catalog
+- [Secrets](secrets.md) — Release automation secrets for consumers
 - [Usage](usage.md) — How to consume these templates from consumer repos
 
 ## Quick start

@@ -165,7 +165,9 @@ uses: sca-templates/CI-CD-Templates/.github/workflows/shared-validate-static.yml
 
 ## Secrets
 
-Most workflows accept `secrets: inherit` for internal repos. For least-privilege, map explicitly:
+Most workflows accept `secrets: inherit` for internal repos. See
+[secrets.md](secrets.md) for the release automation secrets and where to
+configure them. For least-privilege, map explicitly:
 
 ```yaml
 jobs:
@@ -176,11 +178,6 @@ jobs:
       APP_PRIVATE_KEY: ${{ secrets.APP_PRIVATE_KEY }}
 ```
 
-Required secrets:
-
-| Secret | Used by | Description |
-|---|---|---|
-| `APP_ID` + `APP_PRIVATE_KEY` | `shared-release-flow`, `shared-gitops-promote` | GitHub App credentials; mint a short-lived token with `mint-app-token` |
-| `RELEASE_GPG_PRIVATE_KEY` | `shared-release-flow` (optional) | GPG key to sign release tags |
+Required secrets and where to configure them: see [secrets.md](secrets.md).
 
 The GitHub App used for promotion must be installed on both the service repository (read: release PR gate) and `infra-kubernetes` (write: image tag bumps).
