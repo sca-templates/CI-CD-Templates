@@ -75,7 +75,14 @@ jobs:
           sudo install -m 0755 /tmp/osv-scanner /usr/local/bin/osv-scanner
 
       - name: osv-scanner scan
-        run: osv-scanner scan -r .
+        run: |
+          osv-scanner scan -r . || rc=$?
+          # Exit 128 = no supported lockfiles found; nothing to scan, treat as success.
+          if [ "${rc:-0}" -eq 128 ]; then
+            echo "No supported lockfiles found - nothing to scan."
+            exit 0
+          fi
+          exit "${rc:-0}"
 
   license:
     name: License Compliance
