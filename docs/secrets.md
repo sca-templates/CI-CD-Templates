@@ -67,3 +67,34 @@ and tag. When `RELEASE_GPG_PRIVATE_KEY` is set, the tag is re-signed with that
 key; otherwise the tag is left unsigned with a warning. See
 [workflows.md](workflows.md) for the flow catalog and [usage.md](usage.md) for
 consumption examples.
+
+## Signed release tags and the trust anchor
+
+When `RELEASE_GPG_PRIVATE_KEY` is set, `shared-release-flow.yml` re-signs the
+release tag with the release-bot GPG key before pushing. Release tags are
+**not** marked `Verified` in the GitHub UI: the signing identity is the
+`sca-bot-release` GitHub App, and GitHub only displays the badge for signatures
+tied to a registered **user account**. The signature is still cryptographically
+valid and verifiable locally.
+
+The org's signing keys live in **this repository** at
+[`.github/release-bot-gpg.pub`](../.github/release-bot-gpg.pub) as the canonical
+trust anchor. It holds two keys:
+
+| Key | Fingerprint | Status |
+| --- | --- | --- |
+| Current release bot | `93390743AFE58FF566BC29D4D0EC17FC76E3C4BA` | signs release tags from now on |
+| Legacy release bot | `E272B06540C49A7EF2AA22A22D7114035EB46A21` | `infra-kubernetes` `v0.1.0`; kept so historical tags stay verifiable |
+
+Verification (no GitHub account required):
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/sca-templates/CI-CD-Templates/main/.github/release-bot-gpg.pub \
+  | gpg --import
+git tag -v <tag>
+```
+
+`gpg --import` runs once per trust anchor per machine; `git tag -v` then prints
+`Good signature`. Consumer repositories reference the canonical file by URL (as
+above) instead of copying it, keeping a single source of truth for the org's
+signing keys.
