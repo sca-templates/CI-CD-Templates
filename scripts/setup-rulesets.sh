@@ -4,7 +4,8 @@
 #
 # The JSON files are API exports and contain response-only fields (`id`,
 # `source`, ...); this script normalizes them into create/update payloads and
-# collapses required status checks back to plain context strings.
+# keeps required status checks as {context} objects (the API rejects plain
+# context strings).
 #
 # Usage:
 #   gh auth login   # requires admin on the target repository
@@ -41,7 +42,7 @@ for rule in data.get("rules", []):
         continue
     checks = rule.setdefault("parameters", {}).get("required_status_checks", [])
     rule["parameters"]["required_status_checks"] = [
-        c if isinstance(c, str) else c["context"] for c in checks
+        {"context": c} if isinstance(c, str) else {"context": c["context"]} for c in checks
     ]
 json.dump(data, sys.stdout)
 EOF
