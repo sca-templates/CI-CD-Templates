@@ -42,7 +42,7 @@ For a direct (non-reusable) job, use the bare job name.
 ### Via the setup script
 
 `scripts/setup-rulesets.sh` normalizes the exported JSON (drops response-only
-fields like `id`/`source`, collapses status checks to plain contexts) and
+fields like `id`/`source`, normalizes status checks to `{context}` objects) and
 creates or updates every `.github/rulesets/*.json` in the target repository:
 
 ```bash
