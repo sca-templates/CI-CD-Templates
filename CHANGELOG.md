@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.1](https://github.com/sca-templates/CI-CD-Templates/compare/v1.1.0...v1.1.1) (2026-09-18)
+
+
+### Bug Fixes
+
+* **ci:** exclude CHANGELOG.md from markdown link checker ([#17](https://github.com/sca-templates/CI-CD-Templates/issues/17)) ([6739463](https://github.com/sca-templates/CI-CD-Templates/commit/6739463ef67ff775b8b84b257b28ca3070912360))
+
 ## [1.1.0](https://github.com/sca-templates/CI-CD-Templates/compare/v1.0.0...v1.1.0) (2026-09-18)
 
 
