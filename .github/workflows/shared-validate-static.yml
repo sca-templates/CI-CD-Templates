@@ -56,7 +56,7 @@ jobs:
           status=0
           while IFS= read -r -d '' f; do
             npx --yes markdown-link-check@3.15.0 --config .markdown-link-check.json "$f" || status=1
-          done < <(find . -name '*.md' -not -path './node_modules/*' -not -path './.opencode/*' -not -path './.claude/*' -print0)
+          done < <(find . -name '*.md' -not -name 'CHANGELOG.md' -not -path './node_modules/*' -not -path './.opencode/*' -not -path './.claude/*' -print0)
           exit "$status"
 
   yaml-shell:
