@@ -29,6 +29,9 @@ Centralized, reusable CI/CD templates for the [sca-templates](https://github.com
 | QA Lock Check | `shared-qa-lock-check.yml` | Block merges while release PR open |
 | CodeQL | `shared-codeql.yml` | CodeQL static analysis (GitHub Actions) |
 | Scorecard | `shared-scorecard.yml` | OpenSSF Scorecard supply-chain security |
+| Auto Label | `shared-auto-label.yml` | Assign labels to PRs from type, changed files, and stack (idempotent, add-only) |
+| Changelog Notify | `shared-changelog-notify.yml` | Post release summaries to Slack or Discord; skips silently when no webhook |
+| Stale Notify | `shared-stale-notify.yml` | Comment on inactive issues and PRs; never closes or labels them |
 
 ### Stack workflows
 
@@ -71,6 +74,7 @@ See [docs/usage.md](docs/usage.md) for full reference.
 - [Documentation index](docs/INDEX.md)
 - [Workflows catalog](docs/workflows.md)
 - [Rulesets catalog](docs/rulesets.md)
+- [Automations](docs/automations.md)
 - [Usage guide](docs/usage.md)
 
 ## License

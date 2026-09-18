@@ -4,6 +4,14 @@
 
 <!-- Describe the change and why it is needed. -->
 
+## Motivation and context
+
+<!-- Why is this change required? What problem does it solve? If it fixes an open issue, link it here. -->
+
+## Ticket
+
+<!-- Link the ticket via GitHub Autolinks: [Task 123](https://otherticket.com) -->
+
 ## Type of change
 
 - [ ] feat (new template, action, or ruleset)
@@ -27,3 +35,27 @@
 ## Testing
 
 <!-- How was this change verified? E.g. ran the affected workflow locally, PR CI passed. -->
+
+## Screenshots
+
+<!-- If applicable, add screenshots to help explain the change. Otherwise remove this section. -->
+
+## Release notes
+
+<!-- Update the release notes accordingly, or mark N/A. -->
+
+## Additional context
+
+<!-- Any other context or screenshots reviewers should know about. -->
+
+## Linked issues
+
+<!-- e.g. - [ ] Fixes #123 -->
+- [ ] issue 1
+- [ ] issue 2
+
+## Linked pull requests
+
+<!-- e.g. - [ ] Depends on #000 -->
+- [ ] pull request 1
+- [ ] pull request 2

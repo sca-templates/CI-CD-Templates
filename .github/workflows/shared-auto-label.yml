@@ -1,0 +1,54 @@
+---
+name: "Shared: Auto Label"
+
+on:
+  workflow_call:
+    inputs:
+      type-labels:
+        description: "Assign labels from PR type (bug, feature, documentation, ...)"
+        type: boolean
+        default: true
+      stack-labels:
+        description: "Assign stack labels (node, nest, python, java, go, rust, php, dotnet)"
+        type: boolean
+        default: false
+      ensure-labels:
+        description: "Create the global label set (and any label to be added) if missing"
+        type: boolean
+        default: true
+      global-labels:
+        description: "Space-separated global labels to ensure exist when ensure-labels is on"
+        type: string
+        default: "bug feature security documentation dependencies ci refactor enhancement question wontfix duplicate invalid good first issue help wanted"
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
+concurrency:
+  group: auto-label-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  label:
+    name: Auto label
+    runs-on: ubuntu-latest
+    steps:
+      - name: Label pull request
+        id: label
+        uses: sca-templates/CI-CD-Templates/.github/actions/label-pr@bc8e2f0d775e1b48197263c0bcd95d20c83ad557
+        with:
+          token: ${{ github.token }}
+          repo: ${{ github.repository }}
+          pr-number: ${{ github.event.pull_request.number }}
+          head-ref: ${{ github.head_ref }}
+          type-labels: ${{ inputs.type-labels }}
+          stack-labels: ${{ inputs.stack-labels }}
+          ensure-labels: ${{ inputs.ensure-labels }}
+          global-labels: ${{ inputs.global-labels }}
+
+      - name: Report labels
+        if: ${{ steps.label.outputs.labels-added != '' }}
+        run: |
+          echo "Applied to #${{ steps.label.outputs.pr-number }}: ${{ steps.label.outputs.labels-added }}"

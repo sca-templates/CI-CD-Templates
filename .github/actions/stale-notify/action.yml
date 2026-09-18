@@ -1,0 +1,182 @@
+---
+name: Stale Notify
+description: Comment on inactive issues and pull requests without ever closing or labeling them.
+
+inputs:
+  token:
+    description: GitHub token with issues and pull-requests write access
+    required: true
+  repo:
+    description: Repository (owner/repo) to scan
+    required: false
+    default: "${{ github.repository }}"
+  issues-days:
+    description: Days of inactivity before notifying on issues
+    required: false
+    default: "30"
+  prs-days:
+    description: Days of inactivity before notifying on pull requests
+    required: false
+    default: "21"
+  remind-again:
+    description: Send a second reminder at twice the inactivity threshold
+    required: false
+    default: "true"
+  message-text:
+    description: Custom message; supports {days} and {kind} placeholders
+    required: false
+    default: ""
+  max-items:
+    description: Maximum number of open items to scan per run
+    required: false
+    default: "300"
+  dry-run:
+    description: Report what would be notified without posting comments
+    required: false
+    default: "false"
+
+outputs:
+  notified:
+    description: Number of comments posted in this run
+    value: "${{ steps.stale.outputs.notified }}"
+
+runs:
+  using: composite
+  steps:
+    - name: Notify stale issues and pull requests
+      id: stale
+      shell: bash
+      env:
+        TOKEN: ${{ inputs.token }}
+        REPO: ${{ inputs.repo }}
+        ISSUES_DAYS: ${{ inputs.issues-days }}
+        PRS_DAYS: ${{ inputs.prs-days }}
+        REMIND_AGAIN: ${{ inputs.remind-again }}
+        MESSAGE_TEXT: ${{ inputs.message-text }}
+        MAX_ITEMS: ${{ inputs.max-items }}
+        DRY_RUN: ${{ inputs.dry-run }}
+      run: |
+        set -euo pipefail
+        export GH_TOKEN="${TOKEN}"
+
+        case "${ISSUES_DAYS}" in ''|*[!0-9]*) echo "::error::issues-days must be a positive integer"; exit 1 ;; esac
+        case "${PRS_DAYS}" in ''|*[!0-9]*) echo "::error::prs-days must be a positive integer"; exit 1 ;; esac
+        case "${MAX_ITEMS}" in ''|*[!0-9]*) echo "::error::max-items must be a positive integer"; exit 1 ;; esac
+
+        export REPO ISSUES_DAYS PRS_DAYS REMIND_AGAIN MESSAGE_TEXT MAX_ITEMS DRY_RUN
+
+        notified="$(python3 - <<'PYEOF'
+        import json
+        import os
+        import sys
+        import urllib.error
+        import urllib.request
+        from datetime import datetime, timezone
+
+        REPO = os.environ["REPO"]
+        TOKEN = os.environ["TOKEN"]
+        ISSUES_DAYS = int(os.environ["ISSUES_DAYS"])
+        PRS_DAYS = int(os.environ["PRS_DAYS"])
+        REMIND_AGAIN = os.environ.get("REMIND_AGAIN", "true") == "true"
+        MESSAGE_TEXT = os.environ.get("MESSAGE_TEXT", "")
+        MAX_ITEMS = int(os.environ.get("MAX_ITEMS", "300"))
+        DRY_RUN = os.environ.get("DRY_RUN", "false") == "true"
+
+        BASE = "https://api.github.com/repos/{0}".format(REPO)
+        HEADERS = {
+            "Accept": "application/vnd.github+json",
+            "Authorization": "Bearer {0}".format(TOKEN),
+            "X-GitHub-Api-Version": "2022-11-28",
+        }
+        FIRST = "<!-- stale-notify -->"
+        SECOND = "<!-- stale-notify-reminder -->"
+
+
+        def api(path, method="GET", payload=None):
+            data = json.dumps(payload).encode() if payload is not None else None
+            req = urllib.request.Request(BASE + path, data=data, method=method, headers=HEADERS)
+            if data is not None:
+                req.add_header("Content-Type", "application/json")
+            with urllib.request.urlopen(req, timeout=30) as resp:
+                return json.load(resp)
+
+
+        def fetch_open_items():
+            items = []
+            page = 1
+            while len(items) < MAX_ITEMS:
+                batch = api("/issues?state=open&sort=updated&direction=asc&per_page=100&page={0}".format(page))
+                if not batch:
+                    break
+                items.extend(batch)
+                if len(batch) < 100:
+                    break
+                page += 1
+            return items[:MAX_ITEMS]
+
+
+        def parse_ts(value):
+            return datetime.strptime(value, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
+
+
+        def idle_days(updated_at):
+            return (datetime.now(timezone.utc) - parse_ts(updated_at)).days
+
+
+        def default_message(kind, days):
+            return (
+                "This {0} has had no activity for {1} days.\n\n"
+                "It will **not** be closed automatically. This is a friendly reminder "
+                "to review it, or to leave a comment if it is still relevant."
+            ).format(kind, days)
+
+
+        def build_message(kind, days, reminder):
+            if MESSAGE_TEXT:
+                body = MESSAGE_TEXT.replace("{days}", str(days)).replace("{kind}", kind)
+            else:
+                body = default_message(kind, days)
+            if reminder:
+                body += "\n\nThis is a second inactivity reminder."
+            return body
+
+
+        def comment_bodies(number):
+            comments = api("/issues/{0}/comments?per_page=100".format(number))
+            return [c.get("body") or "" for c in comments]
+
+
+        now_total = 0
+        for item in fetch_open_items():
+            is_pr = "pull_request" in item
+            kind = "pull request" if is_pr else "issue"
+            threshold = PRS_DAYS if is_pr else ISSUES_DAYS
+            days = idle_days(item["updatedAt"])
+            if days < threshold:
+                continue
+
+            bodies = comment_bodies(item["number"])
+            has_first = any(FIRST in b for b in bodies)
+            has_second = any(SECOND in b for b in bodies)
+            reminder = False
+            if not has_first:
+                pass
+            elif REMIND_AGAIN and days >= threshold * 2 and not has_second:
+                reminder = True
+            else:
+                continue
+
+            marker = SECOND if reminder else FIRST
+            body = marker + "\n" + build_message(kind, days, reminder)
+            if DRY_RUN:
+                print("would notify {0} #{1} ({2}d)".format(kind, item["number"], days), file=sys.stderr)
+            else:
+                api("/issues/{0}/comments".format(item["number"]), method="POST", payload={"body": body})
+                print("notified {0} #{1} ({2}d)".format(kind, item["number"], days), file=sys.stderr)
+            now_total += 1
+
+        print(now_total)
+        PYEOF
+        )"
+
+        echo "notified=${notified}" >> "${GITHUB_OUTPUT}"

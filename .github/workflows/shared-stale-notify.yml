@@ -1,0 +1,61 @@
+---
+name: "Shared: Stale Notify"
+
+on:
+  workflow_call:
+    inputs:
+      issues-days:
+        description: "Days of inactivity before notifying on issues"
+        type: number
+        default: 30
+      prs-days:
+        description: "Days of inactivity before notifying on pull requests"
+        type: number
+        default: 21
+      remind-again:
+        description: "Send a second reminder at twice the inactivity threshold"
+        type: boolean
+        default: true
+      message-text:
+        description: "Custom message; supports {days} and {kind} placeholders"
+        type: string
+        default: ""
+      max-items:
+        description: "Maximum number of open items to scan per run"
+        type: number
+        default: 300
+      dry-run:
+        description: "Report what would be notified without posting comments"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+  issues: write
+  pull-requests: write
+
+concurrency:
+  group: stale-notify-${{ github.repository }}
+  cancel-in-progress: false
+
+jobs:
+  stale:
+    name: Stale notify
+    runs-on: ubuntu-latest
+    steps:
+      - name: Notify stale issues and pull requests
+        id: stale
+        uses: sca-templates/CI-CD-Templates/.github/actions/stale-notify@bc8e2f0d775e1b48197263c0bcd95d20c83ad557
+        with:
+          token: ${{ github.token }}
+          repo: ${{ github.repository }}
+          issues-days: ${{ inputs.issues-days }}
+          prs-days: ${{ inputs.prs-days }}
+          remind-again: ${{ inputs.remind-again }}
+          message-text: ${{ inputs.message-text }}
+          max-items: ${{ inputs.max-items }}
+          dry-run: ${{ inputs.dry-run }}
+
+      - name: Report
+        run: |
+          echo "Stale notifications posted: ${{ steps.stale.outputs.notified }}"
