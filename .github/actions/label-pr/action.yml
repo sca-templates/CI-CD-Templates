@@ -150,7 +150,7 @@ runs:
         fi
 
         # --- Ensure labels exist (idempotent). ---
-        if [ "${ENSURE_LABELS}" = "true" ] && [ ${#LABELS_ARR[@]:-0} -gt 0 ]; then
+        if [ "${ENSURE_LABELS}" = "true" ] && [ ${#LABELS_ARR[@]} -gt 0 ]; then
           for label in ${GLOBAL_LABELS} "${LABELS_ARR[@]}"; do
             gh label create "${label}" --repo "${REPO}" --force >/dev/null 2>&1 || true
           done
@@ -158,7 +158,7 @@ runs:
 
         # --- Apply labels (add-only, never removing). ---
         LABELS_ADDED=""
-        if [ ${#LABELS_ARR[@]:-0} -gt 0 ]; then
+        if [ ${#LABELS_ARR[@]} -gt 0 ]; then
           args=()
           for label in "${LABELS_ARR[@]}"; do
             args+=(--add-label "${label}")
