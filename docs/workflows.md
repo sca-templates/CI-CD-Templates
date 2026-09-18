@@ -13,6 +13,7 @@ All shared workflows live flat in `.github/workflows/` (GitHub does not support 
 | CodeQL | `shared-codeql.yml` | CodeQL static analysis (GitHub Actions) |
 | Scorecard | `shared-scorecard.yml` | OpenSSF Scorecard supply-chain security |
 | GitOps Promote | `shared-gitops-promote.yml` | Promote service image tags into `infra-kubernetes` (commit or PR, prod release gate) |
+| Auto Label | `shared-auto-label.yml` | Assign labels to PRs from type, changed files, and stack (idempotent, add-only) |
 | Node.js | `stack-node-js.yml` | JavaScript/Express: install, lint, test; optional publish |
 | Node TypeScript | `stack-node-ts.yml` | TypeScript: install, lint, test, build; optional publish |
 | Nest | `stack-nest.yml` | NestJS: install, lint, format, test, build; optional publish |
@@ -75,6 +76,27 @@ Behavior by environment:
 | prod | pull request + human approval | gated: requires an open release-please PR first |
 
 See [usage.md](usage.md) for the full reference.
+
+### Auto Label
+
+Assigns labels to pull requests on PR events. Detection: conventional-commit prefixes and keywords in the title, changed files (`package-lock.json`, workflows, `SECURITY.md`, docs), Dependabot authorship, and optional stack labels (`node`, `nest`, `python`, `java`, `go`, `rust`, `php`, `dotnet`). Add-only and idempotent; can ensure the global label set exists (`ensure-labels`).
+
+```yaml
+# .github/workflows/ci.yml in a consumer repo
+on:
+  pull_request:
+    types: [opened, reopened, synchronize]
+
+jobs:
+  label:
+    uses: sca-templates/CI-CD-Templates/.github/workflows/shared-auto-label.yml@main
+    with:
+      type-labels: true
+      stack-labels: true
+      ensure-labels: true
+```
+
+Requires `permissions: pull-requests: write` and `issues: write` on the calling workflow. Full reference: [docs/automations.md](automations.md).
 
 ### Stack workflows
 
