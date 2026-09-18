@@ -37,7 +37,7 @@ jobs:
     steps:
       - name: Label pull request
         id: label
-        uses: sca-templates/CI-CD-Templates/.github/actions/label-pr@548d0d554320eec9b11f1066c8ec4e54f941755a
+        uses: sca-templates/CI-CD-Templates/.github/actions/label-pr@bc8e2f0d775e1b48197263c0bcd95d20c83ad557
         with:
           token: ${{ github.token }}
           repo: ${{ github.repository }}
