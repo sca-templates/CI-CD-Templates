@@ -34,7 +34,7 @@ jobs:
 
       - name: Send release notification
         id: notify
-        uses: sca-templates/CI-CD-Templates/.github/actions/notify-release@6b23b88a8fa906c621521aa23619ae7df046effb
+        uses: sca-templates/CI-CD-Templates/.github/actions/notify-release@548d0d554320eec9b11f1066c8ec4e54f941755a
         with:
           webhook-url: ${{ secrets.WEBHOOK_URL }}
           platform: ${{ inputs.platform }}
