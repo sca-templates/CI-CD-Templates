@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.0](https://github.com/sca-templates/CI-CD-Templates/compare/v1.0.0...v1.1.0) (2026-09-18)
+
+
+### Features
+
+* **ci:** add PR labeling, stale, and release automations ([#15](https://github.com/sca-templates/CI-CD-Templates/issues/15)) ([d8d2d71](https://github.com/sca-templates/CI-CD-Templates/commit/d8d2d71a240aeef2aaffe18247b162411198c438))
+
 ## 1.0.0 (2026-09-14)
 
 
