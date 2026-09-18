@@ -15,6 +15,7 @@ All shared workflows live flat in `.github/workflows/` (GitHub does not support 
 | GitOps Promote | `shared-gitops-promote.yml` | Promote service image tags into `infra-kubernetes` (commit or PR, prod release gate) |
 | Auto Label | `shared-auto-label.yml` | Assign labels to PRs from type, changed files, and stack (idempotent, add-only) |
 | Changelog Notify | `shared-changelog-notify.yml` | Post release summaries to Slack or Discord; skips silently when no webhook |
+| Stale Notify | `shared-stale-notify.yml` | Comment on inactive issues and PRs; never closes or labels them |
 | Node.js | `stack-node-js.yml` | JavaScript/Express: install, lint, test; optional publish |
 | Node TypeScript | `stack-node-ts.yml` | TypeScript: install, lint, test, build; optional publish |
 | Nest | `stack-nest.yml` | NestJS: install, lint, format, test, build; optional publish |
@@ -121,6 +122,36 @@ jobs:
       summary-lines: 7
     secrets:
       WEBHOOK_URL: ${{ secrets.WEBHOOK_URL }}
+```
+
+Full reference: [docs/automations.md](automations.md).
+
+### Stale Notify
+
+Comments on issues and pull requests that have been inactive for longer than a
+threshold. It **never closes, deletes, or labels** anything — it only posts a
+reminder (once, or twice when `remind-again` is on). Runs on a schedule.
+
+```yaml
+# .github/workflows/stale.yml in a consumer repo
+name: Stale
+
+on:
+  schedule:
+    - cron: "0 7 * * 1"
+
+permissions:
+  contents: read
+  issues: write
+  pull-requests: write
+
+jobs:
+  stale:
+    uses: sca-templates/CI-CD-Templates/.github/workflows/shared-stale-notify.yml@main
+    with:
+      issues-days: 30
+      prs-days: 21
+      remind-again: true
 ```
 
 Full reference: [docs/automations.md](automations.md).
