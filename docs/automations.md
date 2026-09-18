@@ -82,3 +82,60 @@ gh label list --repo <owner>/<repo> --limit 100 --json name --jq '.[].name' | pa
 ```
 
 Pass the result via `with.global-labels` to make that repo self-healing.
+
+## Changelog Notify
+
+Posts the release notes summary to **Slack** or **Discord** via webhook each
+time a release is published. Silent by design: without a configured webhook the
+workflow succeeds without warnings or failures — the notification step just
+skips.
+
+Triggers: `release` (published). A thin consumer wrapper can also expose a
+manual `workflow_dispatch`. Release notes are fetched from the GitHub API using
+the tag, so the summary always reflects the latest content.
+
+### Consumer wiring
+
+```yaml
+name: Release Notify
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  notify:
+    uses: sca-templates/CI-CD-Templates/.github/workflows/shared-changelog-notify.yml@main
+    with:
+      platform: slack        # or discord
+      summary-lines: 7       # 0 = full body
+    secrets:
+      WEBHOOK_URL: ${{ secrets.WEBHOOK_URL }}
+```
+
+### Inputs and secrets
+
+| Input | Default | Description |
+|---|---|---|
+| `platform` | `slack` | `slack` or `discord` |
+| `summary-lines` | `7` | Number of non-empty release note lines to include (`0` = full body) |
+| `WEBHOOK_URL` *(secret)* | — | Slack or Discord incoming webhook; empty = silently skipped |
+
+### Message format
+
+```text
+[Release] <owner>/<repo> - <tag or title>
+<release url>
+
+- first release note line
+- second release note line
+```
+
+### Create an incoming webhook
+
+- **Slack:** Apps → Incoming Webhooks → add the app to a channel, copy the webhook URL.
+- **Discord:** Server Settings → Integrations → Webhooks → New Webhook, copy the URL.
+
+Set it as a repository or organization secret named `WEBHOOK_URL` (environment
+support: none; the shared workflow has no environment input since release
+notifications are org-global).

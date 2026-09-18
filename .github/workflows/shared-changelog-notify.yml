@@ -1,0 +1,50 @@
+---
+name: "Shared: Changelog Notify"
+
+on:
+  workflow_call:
+    inputs:
+      platform:
+        description: "Notification platform (slack or discord)"
+        type: string
+        default: "slack"
+      summary-lines:
+        description: "Number of non-empty release note lines to include (0 = full body)"
+        type: number
+        default: 7
+    secrets:
+      WEBHOOK_URL:
+        description: "Slack or Discord webhook URL; when unset the notification is skipped silently"
+        required: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: changelog-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  notify:
+    name: Notify release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout release notes already available
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Send release notification
+        id: notify
+        uses: sca-templates/CI-CD-Templates/.github/actions/notify-release@6b23b88a8fa906c621521aa23619ae7df046effb
+        with:
+          webhook-url: ${{ secrets.WEBHOOK_URL }}
+          platform: ${{ inputs.platform }}
+          token: ${{ github.token }}
+          repo: ${{ github.repository }}
+          release-tag: ${{ github.event.release.tag_name }}
+          release-name: ${{ github.event.release.name }}
+          release-url: ${{ github.event.release.html_url }}
+          summary-lines: ${{ inputs.summary-lines }}
+
+      - name: Report notification status
+        if: ${{ steps.notify.outputs.notified == 'true' }}
+        run: echo "Slack webhook notified for ${{ github.event.release.tag_name }}."

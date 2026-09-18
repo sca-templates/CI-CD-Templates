@@ -14,6 +14,7 @@ All shared workflows live flat in `.github/workflows/` (GitHub does not support 
 | Scorecard | `shared-scorecard.yml` | OpenSSF Scorecard supply-chain security |
 | GitOps Promote | `shared-gitops-promote.yml` | Promote service image tags into `infra-kubernetes` (commit or PR, prod release gate) |
 | Auto Label | `shared-auto-label.yml` | Assign labels to PRs from type, changed files, and stack (idempotent, add-only) |
+| Changelog Notify | `shared-changelog-notify.yml` | Post release summaries to Slack or Discord; skips silently when no webhook |
 | Node.js | `stack-node-js.yml` | JavaScript/Express: install, lint, test; optional publish |
 | Node TypeScript | `stack-node-ts.yml` | TypeScript: install, lint, test, build; optional publish |
 | Nest | `stack-nest.yml` | NestJS: install, lint, format, test, build; optional publish |
@@ -97,6 +98,32 @@ jobs:
 ```
 
 Requires `permissions: pull-requests: write` and `issues: write` on the calling workflow. Full reference: [docs/automations.md](automations.md).
+
+### Changelog Notify
+
+Posts the release notes summary to Slack or Discord whenever a release is
+published. When the `WEBHOOK_URL` secret is not configured the notification is
+**silently skipped** — the workflow succeeds without warnings or failures.
+
+```yaml
+# .github/workflows/release-notify.yml in a consumer repo
+name: Release Notify
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  notify:
+    uses: sca-templates/CI-CD-Templates/.github/workflows/shared-changelog-notify.yml@main
+    with:
+      platform: slack
+      summary-lines: 7
+    secrets:
+      WEBHOOK_URL: ${{ secrets.WEBHOOK_URL }}
+```
+
+Full reference: [docs/automations.md](automations.md).
 
 ### Stack workflows
 

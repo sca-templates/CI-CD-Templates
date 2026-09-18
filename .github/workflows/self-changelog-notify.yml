@@ -1,0 +1,30 @@
+---
+name: "Self: Changelog Notify"
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      platform:
+        description: "Notification platform (slack or discord)"
+        type: choice
+        options: [slack, discord]
+        default: slack
+      summary-lines:
+        description: "Number of non-empty release note lines to include (0 = full body)"
+        type: number
+        default: 7
+
+permissions:
+  contents: read
+
+jobs:
+  notify:
+    name: Notify release
+    uses: ./.github/workflows/shared-changelog-notify.yml
+    with:
+      platform: ${{ inputs.platform || 'slack' }}
+      summary-lines: ${{ inputs.summary-lines || 7 }}
+    secrets:
+      WEBHOOK_URL: ${{ secrets.WEBHOOK_URL }}
