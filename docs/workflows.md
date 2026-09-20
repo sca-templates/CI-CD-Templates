@@ -43,6 +43,14 @@ jobs:
       APP_PRIVATE_KEY: ${{ secrets.APP_PRIVATE_KEY }}
 ```
 
+> **Callers must grant `pull-requests: write` at workflow level.** The nested
+> `auto-merge` job requests it, and GitHub validates reusable-workflow
+> permissions **statically** against the caller's `permissions:` block — a
+> caller that only grants `contents: read` fails before the workflow starts,
+> even if `auto-merge-release-pr` is left `false`. The auto-merge itself is
+> executed with the release bot token, so the write scope only widens the
+> caller's `GITHUB_TOKEN` for PR operations.
+
 ### Service Promote (dev/qa refs)
 
 Moves the `deploy/dev` or `deploy/qa` branch ref of the service repo to a target
@@ -75,6 +83,12 @@ jobs:
 `run-publish: true` additionally builds and pushes the `sha-<commit>` image to
 GHCR (exact `stack-nest.yml` publish pattern, `packages: write` on the job).
 `dry-run: true` reports the ref move without pushing.
+
+> **Callers must grant `packages: write` at workflow level.** The nested
+> `publish` job requests it, and GitHub validates reusable-workflow permissions
+> **statically** against the caller's `permissions:` block — a caller that only
+> grants `contents: read` fails before the workflow starts, even in
+> `dry-run: true`.
 
 ### Adopt Prod (version pin)
 
