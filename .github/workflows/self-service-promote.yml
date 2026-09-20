@@ -13,6 +13,10 @@ on:
         description: "Service name to smoke-test"
         type: string
         default: CI-CD-Templates
+      ref:
+        description: "Git ref (branch or tag) to smoke-test"
+        type: string
+        default: main
 
 permissions:
   contents: read
@@ -31,6 +35,7 @@ jobs:
     with:
       environment: ${{ inputs.environment }}
       service: ${{ inputs.service }}
+      ref: ${{ inputs.ref }}
       dry-run: true
     secrets:
       APP_ID: ${{ secrets.DEPLOY_APP_ID }}

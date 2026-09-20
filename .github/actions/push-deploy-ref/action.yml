@@ -1,0 +1,127 @@
+---
+name: Push Deploy Ref
+description: Force-push a commit to a deploy/<env> ref so ArgoCD tracks the promoted version.
+
+inputs:
+  environment:
+    description: Target deploy ref to move (dev or qa)
+    required: true
+  service:
+    description: Service name (used for concurrency and messages)
+    required: true
+  ref:
+    description: Git ref (branch or tag) whose head commit to promote; takes precedence over commit
+    required: false
+    default: ""
+  commit:
+    description: Commit SHA to promote; ignored when ref is set
+    required: false
+    default: ""
+  default-commit:
+    description: Fallback commit when neither ref nor commit are provided
+    required: false
+    default: ""
+  dry-run:
+    description: Report the ref move without pushing
+    required: false
+    default: "false"
+  app-id:
+    description: "Deploy-bot GitHub App ID (contents: write on the service repo)"
+    required: true
+  app-private-key:
+    description: Deploy-bot GitHub App private key (PEM)
+    required: true
+  github-repository:
+    description: Repository in owner/name form that owns the deploy refs
+    required: true
+
+outputs:
+  pushed-commit:
+    description: Commit SHA the deploy ref was pointed at
+    value: ${{ steps.push.outputs.pushed-commit }}
+  updated:
+    description: Whether the deploy ref was moved (true, or false on dry-run)
+    value: ${{ steps.push.outputs.updated }}
+
+runs:
+  using: composite
+  steps:
+    - name: Mint deploy-bot token
+      id: app-token
+      uses: sca-templates/CI-CD-Templates/.github/actions/mint-app-token@66755baa61ec4d5134e0f63f693bcff8722c1759
+      with:
+        client-id: ${{ inputs.app-id }}
+        private-key: ${{ inputs.app-private-key }}
+        owner: ${{ github.repository_owner }}
+        repositories: ${{ github.event.repository.name }}
+
+    - name: Check out the repository
+      uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      with:
+        fetch-depth: 0
+        persist-credentials: false
+
+    - name: Resolve target commit
+      id: resolve
+      shell: bash
+      env:
+        ref_input: ${{ inputs.ref }}
+        commit_input: ${{ inputs.commit }}
+        default_commit: ${{ inputs.default-commit }}
+      run: |
+        set -euo pipefail
+        git fetch --no-tags --quiet origin '+refs/heads/*:refs/remotes/origin/*'
+        COMMIT=""
+        if [ -n "$ref_input" ]; then
+          COMMIT="$(git rev-parse --verify --quiet "refs/remotes/origin/${ref_input}^{commit}" || true)"
+          if [ -z "$COMMIT" ]; then
+            echo "::error::ref '$ref_input' does not resolve to a commit in this repository"
+            exit 1
+          fi
+        elif [ -n "$commit_input" ]; then
+          COMMIT="$commit_input"
+        else
+          COMMIT="$default_commit"
+        fi
+        if ! [[ "$COMMIT" =~ ^[0-9a-f]{40}$ ]]; then
+          echo "::error::unable to resolve a full commit SHA (got '$COMMIT')"
+          exit 1
+        fi
+        echo "commit=$COMMIT" >> "$GITHUB_OUTPUT"
+
+    - name: Push deploy ref
+      id: push
+      shell: bash
+      env:
+        environment: ${{ inputs.environment }}
+        service: ${{ inputs.service }}
+        commit: ${{ steps.resolve.outputs.commit }}
+        dry_run: ${{ inputs.dry-run }}
+        repo: ${{ inputs.github-repository }}
+        bot_token: ${{ steps.app-token.outputs.token }}
+      run: |
+        set -euo pipefail
+
+        case "$environment" in
+          dev|qa) ;;
+          *) echo "::error::environment must be dev or qa (got '$environment')"; exit 1 ;;
+        esac
+
+        if ! git cat-file -e "${commit}^{commit}" 2>/dev/null; then
+          echo "::error::commit $commit is not present in $repo"
+          exit 1
+        fi
+
+        REF="refs/heads/deploy/${environment}"
+        echo "pushed-commit=$commit" >> "$GITHUB_OUTPUT"
+
+        if [ "$dry_run" = "true" ]; then
+          echo "::warning::dry-run — would force-push $commit to $REF"
+          echo "updated=false" >> "$GITHUB_OUTPUT"
+          exit 0
+        fi
+
+        git -c "http.extraHeader=Authorization: Bearer ${bot_token}" push --force \
+          "https://github.com/${repo}.git" "${commit}:${REF}"
+        echo "Pointed $REF at $commit"
+        echo "updated=true" >> "$GITHUB_OUTPUT"

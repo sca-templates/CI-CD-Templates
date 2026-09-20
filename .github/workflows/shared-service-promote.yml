@@ -12,8 +12,12 @@ on:
         description: "Service name (used for concurrency and messages)"
         type: string
         required: true
+      ref:
+        description: "Git ref (branch or tag) to promote; takes precedence over commit and defaults to the triggering commit"
+        type: string
+        default: ""
       commit:
-        description: "Commit SHA to promote; defaults to the triggering commit"
+        description: "Commit SHA to promote; ignored when ref is set, defaults to the triggering commit"
         type: string
         default: ""
       run-publish:
@@ -61,83 +65,53 @@ concurrency:
 
 jobs:
   promote:
-    name: Promote ${{ inputs.environment }}
+    name: Promote ${{ inputs.environment }} (direct)
+    if: ${{ !(inputs.environment == 'qa' && inputs.dry-run == 'false') }}
     runs-on: ubuntu-latest
     outputs:
       pushed-commit: ${{ steps.push.outputs.pushed-commit }}
       updated: ${{ steps.push.outputs.updated }}
     steps:
-      - name: Mint deploy-bot token
-        id: app-token
-        uses: sca-templates/CI-CD-Templates/.github/actions/mint-app-token@66755baa61ec4d5134e0f63f693bcff8722c1759
-        with:
-          client-id: ${{ secrets.APP_ID }}
-          private-key: ${{ secrets.APP_PRIVATE_KEY }}
-          owner: ${{ github.repository_owner }}
-          repositories: ${{ github.repository }}
-
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          fetch-depth: 0
-          persist-credentials: false
-
-      - name: Resolve target commit
-        id: resolve
-        shell: bash
-        env:
-          commit_input: ${{ inputs.commit }}
-          default_commit: ${{ github.sha }}
-        run: |
-          set -euo pipefail
-          COMMIT="$commit_input"
-          [ -n "$COMMIT" ] || COMMIT="$default_commit"
-          if ! [[ "$COMMIT" =~ ^[0-9a-f]{40}$ ]]; then
-            echo "::error::commit '$COMMIT' is not a full commit SHA"
-            exit 1
-          fi
-          echo "commit=$COMMIT" >> "$GITHUB_OUTPUT"
-
       - name: Push deploy ref
         id: push
-        shell: bash
-        env:
+        uses: sca-templates/CI-CD-Templates/.github/actions/push-deploy-ref@d44e3cc4c907d9cf90ab1375640582d655fd3b70
+        with:
           environment: ${{ inputs.environment }}
           service: ${{ inputs.service }}
-          commit: ${{ steps.resolve.outputs.commit }}
-          dry_run: ${{ inputs.dry-run }}
-          repo: ${{ github.repository }}
-          bot_token: ${{ steps.app-token.outputs.token }}
-        run: |
-          set -euo pipefail
+          ref: ${{ inputs.ref }}
+          commit: ${{ inputs.commit }}
+          default-commit: ${{ github.sha }}
+          dry-run: ${{ inputs.dry-run }}
+          app-id: ${{ secrets.APP_ID }}
+          app-private-key: ${{ secrets.APP_PRIVATE_KEY }}
+          github-repository: ${{ github.repository }}
 
-          case "$environment" in
-            dev|qa) ;;
-            *) echo "::error::environment must be dev or qa (got '$environment')"; exit 1 ;;
-          esac
-
-          git fetch --no-tags --quiet origin '+refs/heads/*:refs/remotes/origin/*'
-          if ! git cat-file -e "${commit}^{commit}" 2>/dev/null; then
-            echo "::error::commit $commit is not present in $repo"
-            exit 1
-          fi
-
-          REF="refs/heads/deploy/${environment}"
-          echo "pushed-commit=$commit" >> "$GITHUB_OUTPUT"
-
-          if [ "$dry_run" = "true" ]; then
-            echo "::warning::dry-run — would force-push $commit to $REF"
-            echo "updated=false" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-
-          git -c "http.extraHeader=Authorization: Bearer ${bot_token}" push --force \
-            "https://github.com/${repo}.git" "${commit}:${REF}"
-          echo "Pointed $REF at $commit"
-          echo "updated=true" >> "$GITHUB_OUTPUT"
+  promote-qa:
+    name: Promote qa (requires approval)
+    if: ${{ inputs.environment == 'qa' && inputs.dry-run == 'false' }}
+    runs-on: ubuntu-latest
+    environment: qa
+    outputs:
+      pushed-commit: ${{ steps.push.outputs.pushed-commit }}
+      updated: ${{ steps.push.outputs.updated }}
+    steps:
+      - name: Push deploy ref
+        id: push
+        uses: sca-templates/CI-CD-Templates/.github/actions/push-deploy-ref@d44e3cc4c907d9cf90ab1375640582d655fd3b70
+        with:
+          environment: ${{ inputs.environment }}
+          service: ${{ inputs.service }}
+          ref: ${{ inputs.ref }}
+          commit: ${{ inputs.commit }}
+          default-commit: ${{ github.sha }}
+          dry-run: ${{ inputs.dry-run }}
+          app-id: ${{ secrets.APP_ID }}
+          app-private-key: ${{ secrets.APP_PRIVATE_KEY }}
+          github-repository: ${{ github.repository }}
 
   publish:
     name: Publish Docker image
-    needs: promote
+    needs: [promote, promote-qa]
     if: ${{ inputs.run-publish && !inputs.dry-run }}
     runs-on: ubuntu-latest
     permissions:
@@ -157,7 +131,7 @@ jobs:
 
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ needs.promote.outputs.pushed-commit }}
+          ref: ${{ needs.promote.outputs.pushed-commit || needs['promote-qa'].outputs.pushed-commit }}
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e # v4.3.0
@@ -176,6 +150,6 @@ jobs:
           file: ${{ inputs.dockerfile }}
           platforms: ${{ inputs.platforms }}
           push: true
-          tags: ${{ inputs.image }}:${{ inputs.publish-tag || format('sha-{0}', needs.promote.outputs.pushed-commit) }}
+          tags: ${{ inputs.image }}:${{ inputs.publish-tag || format('sha-{0}', needs.promote.outputs.pushed-commit || needs['promote-qa'].outputs.pushed-commit) }}
           cache-from: type=gha
           cache-to: type=gha,mode=max

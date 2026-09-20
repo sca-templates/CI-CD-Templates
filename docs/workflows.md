@@ -12,7 +12,7 @@ All shared workflows live flat in `.github/workflows/` (GitHub does not support 
 | QA Lock Check | `shared-qa-lock-check.yml` | Block merges while release PR open |
 | CodeQL | `shared-codeql.yml` | CodeQL static analysis (GitHub Actions) |
 | Scorecard | `shared-scorecard.yml` | OpenSSF Scorecard supply-chain security |
-| Service Promote | `shared-service-promote.yml` | Move `deploy/<env>` refs (dev/qa) so ArgoCD tracks the promoted commit |
+| Service Promote | `shared-service-promote.yml` | Promote a selected branch/tag/commit to `deploy/<env>` (dev/qa) so ArgoCD tracks it; QA requires human approval |
 | Adopt Prod | `shared-adopt-prod.yml` | Pin a release tag as the version running in prod (GitOps registry, PR or direct commit) |
 | Enforce Latest | `shared-enforce-latest.yml` | Correct GitHub `latest` release to the version actually deployed in prod |
 | Auto Label | `shared-auto-label.yml` | Assign labels to PRs from type, changed files, and stack (idempotent, add-only) |
@@ -170,6 +170,11 @@ commit (`--force` by the deploy bot). ArgoCD Applications point at these refs,
 so the ref move is the promotion. Implements the trunk-based model documented in
 [service-release-model.md](service-release-model.md).
 
+Select the branch, tag or commit you want everyone to test in dev/qa, run the
+workflow, and its head becomes that environment. The `ref`/`commit` inputs are
+plain strings, so consumers usually expose a `ref` input on
+`workflow_dispatch`:
+
 ```yaml
 # .github/workflows/promote.yml in the service repo
 name: Promote
@@ -180,6 +185,10 @@ on:
       environment:
         type: choice
         options: [dev, qa]
+      ref:
+        description: Branch or tag to deploy
+        type: string
+        default: main
       service:
         required: true
 
@@ -188,9 +197,13 @@ jobs:
     uses: sca-templates/CI-CD-Templates/.github/workflows/shared-service-promote.yml@main
     with:
       environment: ${{ inputs.environment }}
+      ref: ${{ inputs.ref }}
       service: ${{ inputs.service }}
     secrets: inherit
 ```
+
+Resolution order: `ref` → `commit` → the triggering commit. `commit` is kept for
+automation that passes an explicit SHA.
 
 `run-publish: true` additionally builds and pushes the `sha-<commit>` image to
 GHCR (exact `stack-nest.yml` publish pattern, `packages: write` on the job).
@@ -201,6 +214,22 @@ GHCR (exact `stack-nest.yml` publish pattern, `packages: write` on the job).
 > **statically** against the caller's `permissions:` block — a caller that only
 > grants `contents: read` fails before the workflow starts, even in
 > `dry-run: true`.
+
+#### QA approval (not a PR)
+
+A real (non-`dry-run`) promote to `qa` runs against the GitHub `qa`
+Environment. Configure **Required reviewers** on it (Settings → Environments →
+`qa`, up to 6 people/teams): the run pauses at the `promote-qa` job with
+"Waiting for approval", and the deploy ref only moves after one reviewer
+approves in the Actions UI. Dev promotes and dry-runs never wait.
+
+- The environment and its reviewers are **per consumer repo**; the template only
+  references `qa` by name. Repos that leave the environment without reviewers
+  (or let it auto-create) keep the old no-approval behavior.
+- Required reviewers are only available for **public** repos on Free/Pro/Team
+  plans; **private** repos need an Enterprise Cloud plan.
+- A QA promote holds the `service+qa` concurrency lock while waiting for
+  approval, so subsequent QA promotes queue instead of racing.
 
 ### Adopt Prod (version pin)
 

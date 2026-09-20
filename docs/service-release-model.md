@@ -19,8 +19,8 @@ The deploy model is trunk-based: there is **no release PR** for deployments.
 
 | Aspect | Mechanism |
 |---|---|
-| dev | `deploy/dev` branch ref in the service repo, force-pushed by the deploy bot |
-| qa | `deploy/qa` branch ref in the service repo, force-pushed by the deploy bot |
+| dev | selected branch/tag/commit, force-pushed by the deploy bot to `deploy/dev` in the service repo (no approval) |
+| qa | selected branch/tag/commit, force-pushed by the deploy bot to `deploy/qa`; a real promote runs against the `qa` GitHub Environment and waits for a **human approval** (Required reviewers) before the ref moves — no PR involved |
 | prod | immutable, signed `vX.Y.Z` tag (from `shared-release-flow.yml`) pinned in `argocd/services-prod.yaml` of `sca-templates/infra-kubernetes` |
 | prod apply | PR `chore(services): …` **or** direct commit; human approves/merges; ArgoCD syncs `prod` in the manual sync window (ADR-003) |
 | container images | always tagged `sha-<commit>`, never `latest` |
@@ -62,6 +62,22 @@ current prod pin without waiting for the next cron tick.
 | [`shared-release-flow.yml`](workflows.md) | release-please + signed tags; optional `auto-merge-release-pr` |
 
 Consumer wiring: [usage.md](usage.md).
+
+## Dev/QA promotion
+
+Dev and QA share one environment each: whoever promotes last decides what
+everyone tests there. `shared-service-promote.yml` takes a `ref` (branch or tag,
+resolved to its head commit) — or an explicit `commit` — and force-pushes it to
+`deploy/dev` or `deploy/qa`:
+
+- **dev**: promotes immediately.
+- **qa**: a real promote runs against the repo's `qa` GitHub Environment. If the
+  repo configures **Required reviewers** on it, the run pauses ("Waiting for
+  approval") until one reviewer approves in the Actions UI — the approval is a
+  human gate, not a PR. Without reviewers configured the old no-approval
+  behavior is kept. `dry-run` never waits.
+
+Dev/QA have no release PR: they take any commit, not only `vX.Y.Z` tags.
 
 ## Ruleset
 
