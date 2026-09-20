@@ -1,0 +1,30 @@
+---
+name: "Self: Mark Latest"
+
+on:
+  workflow_dispatch:
+    inputs:
+      release-tag:
+        description: "Existing release tag to promote to latest (e.g. v2.1.0)"
+        type: string
+        required: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: self-mark-latest-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  mark:
+    name: Mark latest
+    uses: ./.github/workflows/shared-enforce-latest.yml
+    with:
+      service: CI-CD-Templates
+      tag-source: explicit
+      release-tag: ${{ inputs.release-tag }}
+      dry-run: false
+    secrets:
+      APP_ID: ${{ secrets.DEPLOY_APP_ID }}
+      APP_PRIVATE_KEY: ${{ secrets.DEPLOY_APP_PRIVATE_KEY }}
