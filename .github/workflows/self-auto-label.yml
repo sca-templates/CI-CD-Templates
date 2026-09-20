@@ -15,6 +15,10 @@ concurrency:
 jobs:
   label:
     name: Auto label
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
     uses: ./.github/workflows/shared-auto-label.yml
     with:
       type-labels: true

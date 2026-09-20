@@ -17,6 +17,10 @@ permissions:
 jobs:
   stale:
     name: Stale notify
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: write
     uses: ./.github/workflows/shared-stale-notify.yml
     with:
       issues-days: 30
