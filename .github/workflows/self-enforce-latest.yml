@@ -1,0 +1,32 @@
+---
+name: "Self: Enforce Latest"
+
+on:
+  workflow_dispatch:
+    inputs:
+      service:
+        description: "Service name to smoke-test"
+        type: string
+        default: CI-CD-Templates
+      release-tag:
+        description: "Existing release tag to treat as the deployed version"
+        type: string
+        default: v1.1.1
+
+permissions:
+  contents: read
+
+concurrency:
+  group: self-enforce-latest-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  enforce:
+    name: Enforce Latest (dry-run)
+    uses: ./.github/workflows/shared-enforce-latest.yml
+    with:
+      service: ${{ inputs.service }}
+      tag-source: explicit
+      release-tag: ${{ inputs.release-tag }}
+      dry-run: true
+    secrets: inherit

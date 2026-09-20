@@ -16,6 +16,10 @@ on:
         description: "release-please manifest file path"
         type: string
         default: ".release-please-manifest.json"
+      auto-merge-release-pr:
+        description: "Enable auto-merge (squash) on the release PR so it merges once checks and reviews pass"
+        type: boolean
+        default: false
     secrets:
       APP_ID:
         description: "GitHub App ID for release automation (needs contents: write, pull-requests: write)"
@@ -44,6 +48,7 @@ jobs:
     outputs:
       releases_created: ${{ steps.release.outputs.releases_created }}
       tag_name: ${{ steps.release.outputs.tag_name }}
+      pr: ${{ steps.release.outputs.pr }}
     steps:
       - name: Mint release-bot token
         id: app-token
@@ -109,3 +114,35 @@ jobs:
       - name: Skip tag signing (no GPG key configured)
         if: ${{ env.GPG_PRIVATE_KEY == '' }}
         run: echo "::warning::RELEASE_GPG_PRIVATE_KEY not set; release tag left unsigned."
+
+  auto-merge:
+    name: Enable release PR auto-merge
+    needs: release
+    if: ${{ inputs.auto-merge-release-pr && needs.release.outputs.pr != '' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - name: Mint release-bot token
+        id: app-token
+        uses: sca-templates/CI-CD-Templates/.github/actions/mint-app-token@66755baa61ec4d5134e0f63f693bcff8722c1759
+        with:
+          client-id: ${{ secrets.APP_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: ${{ github.event.repository.name }}
+
+      - name: Enable auto-merge
+        shell: bash
+        env:
+          pr: ${{ needs.release.outputs.pr }}
+          repo: ${{ github.repository }}
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: |
+          set -euo pipefail
+          if gh pr merge "$pr" --repo "$repo" --auto --squash; then
+            echo "Auto-merge enabled on release PR #$pr"
+          else
+            echo "::warning::could not enable auto-merge on release PR #$pr"
+          fi

@@ -34,9 +34,6 @@ done
 # Each shared-* workflow has a self-* workflow that calls it.
 for f in "$WF"/shared-*.yml; do
   name="$(basename "$f")"
-  case "$name" in
-    shared-gitops-promote.yml) continue ;; # requires external GitOps infra
-  esac
   grep -rqF "workflows/$name" "$WF"/self-*.yml || fail_msg "$name has no self-* workflow calling it"
 done
 

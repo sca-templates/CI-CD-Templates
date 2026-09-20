@@ -1,0 +1,32 @@
+---
+name: "Self: Service Promote"
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Environment to smoke-test (dev or qa)"
+        type: choice
+        options: [dev, qa]
+        default: dev
+      service:
+        description: "Service name to smoke-test"
+        type: string
+        default: CI-CD-Templates
+
+permissions:
+  contents: read
+
+concurrency:
+  group: self-service-promote-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  promote:
+    name: Service Promote (dry-run)
+    uses: ./.github/workflows/shared-service-promote.yml
+    with:
+      environment: ${{ inputs.environment }}
+      service: ${{ inputs.service }}
+      dry-run: true
+    secrets: inherit

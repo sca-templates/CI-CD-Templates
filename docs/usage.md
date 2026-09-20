@@ -36,20 +36,17 @@ jobs:
 ```yaml
 # Inside a job step
 steps:
-  - name: Mint release bot token
+  - name: Mint bot token
     id: app-token
     uses: sca-templates/CI-CD-Templates/.github/actions/mint-app-token@main
     with:
       client-id: ${{ secrets.APP_ID }}
       private-key: ${{ secrets.APP_PRIVATE_KEY }}
 
-  - name: Promote image tag
-    uses: sca-templates/CI-CD-Templates/.github/actions/gitops-bump-image@main
-    with:
-      environment: dev
-      service: sca-api
-      image-tag: v1.2.3
-      bot-token: ${{ steps.app-token.outputs.token }}
+  - name: Inspect the deployment state with the bot token
+    env:
+      GH_TOKEN: ${{ steps.app-token.outputs.token }}
+    run: gh api "/repos/${{ github.repository }}/rulesets" --jq '.[].name'
 ```
 
 ## Node, TypeScript and Nest stack workflows
@@ -112,41 +109,59 @@ jobs:
       run-publish: true
 ```
 
-## Manual deployments (GitOps promote)
+## Deploying a service (deploy model)
 
-Promotion to `dev`, `qa` and `prod` is a manual action. Each service repo declares a thin `workflow_dispatch` wrapper that calls the shared workflow:
+Deployments follow a trunk-based model with ArgoCD/GitOps — there is no release
+PR for deployments. The full contract is in
+[service-release-model.md](service-release-model.md); the short version:
+
+- **dev / qa** — a commit is promoted by force-pushing the `deploy/dev` or
+  `deploy/qa` branch ref of the **service repo**. ArgoCD Applications track
+  those refs, so the ref move is the deployment:
+  `shared-service-promote.yml`.
+- **prod** — a release tag `vX.Y.Z` is pinned in the GitOps registry
+  (`argocd/services-prod.yaml` in `infra-kubernetes`) through a
+  `chore(services): …` pull request: `shared-adopt-prod.yml`. A human approves
+  and merges; ArgoCD syncs `prod` in the manual sync window (ADR-003).
+- **latest** — GitHub `latest` is a marker of reality: the exact version
+  running in prod. A reconcile loop in `infra-kubernetes` reads the ArgoCD
+  state and calls `shared-enforce-latest.yml` (or the optional fast-path on
+  `release published`).
+
+Two org bot apps split the planes:
+
+| Bot | Plane | Used by |
+|---|---|---|
+| `sca-bot-release` | release (tags, release PRs, GPG) | `shared-release-flow.yml` |
+| `sca-deploy-bot` | deploy (deploy refs, prod pins, latest marker) | `shared-service-promote.yml`, `shared-adopt-prod.yml`, `shared-enforce-latest.yml` |
 
 ```yaml
-# .github/workflows/deploy.yml in the service repo
-name: Deploy
+# .github/workflows/promote.yml in the service repo
+name: Promote
 
 on:
   workflow_dispatch:
     inputs:
       environment:
         type: choice
-        options: [dev, qa, prod]
-      image-tag:
+        options: [dev, qa]
+      service:
         required: true
         type: string
 
 jobs:
-  deploy:
-    uses: sca-templates/CI-CD-Templates/.github/workflows/shared-gitops-promote.yml@main
+  promote:
+    uses: sca-templates/CI-CD-Templates/.github/workflows/shared-service-promote.yml@main
     with:
       environment: ${{ inputs.environment }}
-      service: <service-name>
-      image-tag: ${{ inputs.image-tag }}
+      service: ${{ inputs.service }}
     secrets: inherit
 ```
 
-What happens per environment:
-
-- **dev** — `image.tag` is bumped and committed directly to `main` in the GitOps repository; ArgoCD syncs `dev` immediately.
-- **qa** — same direct commit; the QA team runs detailed tests against the new image.
-- **prod** — a pull request is opened instead of a direct commit. It is gated: an open release-please PR in the service repository is required before the promotion PR is allowed. A human approves and merges the PR, then ArgoCD deploys to `prod`.
-
-The environments differ in sync policy; `infra-kubernetes` remains the single declarative source applied by ArgoCD to every cluster.
+For prod the reconciler (or a human) calls `shared-adopt-prod.yml` with the
+release tag and `shared-enforce-latest.yml` to keep `latest` truthful. See
+[service-release-model.md](service-release-model.md) for wiring, roles, inputs
+and the migration from the retired `shared-gitops-promote.yml`.
 
 ## Applying rulesets
 
@@ -183,4 +198,4 @@ jobs:
 
 Required secrets and where to configure them: see [secrets.md](secrets.md).
 
-The GitHub App used for promotion must be installed on both the service repository (read: release PR gate) and `infra-kubernetes` (write: image tag bumps).
+The GitHub Apps must be installed on the repositories they act on: `sca-bot-release` on every repo that calls `shared-release-flow.yml`; `sca-deploy-bot` on the service repos **and** `infra-kubernetes` (deploy refs and prod pins). See [secrets.md](secrets.md).

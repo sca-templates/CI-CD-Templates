@@ -1,0 +1,237 @@
+---
+name: "Shared: Adopt Prod"
+
+on:
+  workflow_call:
+    inputs:
+      service:
+        description: "Service name used to locate its pin in the GitOps registry"
+        type: string
+        required: true
+      release-tag:
+        description: "Release tag to pin in the prod registry (e.g. v1.2.3)"
+        type: string
+        required: true
+      gitops-repo:
+        description: "GitOps repository holding the prod registry"
+        type: string
+        default: "sca-templates/infra-kubernetes"
+      base-branch:
+        description: "Base branch of the GitOps repository"
+        type: string
+        default: "main"
+      registry-path:
+        description: "Registry file whose version pin represents prod"
+        type: string
+        default: "argocd/services-prod.yaml"
+      yq-expression:
+        description: "yq expression reading the pinned version; defaults to a service lookup"
+        type: string
+        default: ""
+      set-expression:
+        description: "yq path used to write the pin; defaults to the matched read path"
+        type: string
+        default: ""
+      mode:
+        description: "pr (open a pull request) or commit (push directly to the base branch)"
+        type: string
+        default: "pr"
+      skip-tag-check:
+        description: "Skip verifying that release-tag exists in this repository"
+        type: boolean
+        default: false
+      dry-run:
+        description: "Report the change without committing or opening a PR"
+        type: boolean
+        default: false
+    secrets:
+      APP_ID:
+        description: "Deploy-bot GitHub App ID (contents: write on the service and GitOps repos)"
+        required: true
+      APP_PRIVATE_KEY:
+        description: "Deploy-bot GitHub App private key (PEM)"
+        required: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: adopt-prod-${{ inputs.service }}
+  cancel-in-progress: false
+
+jobs:
+  adopt:
+    name: Adopt prod pin
+    runs-on: ubuntu-latest
+    outputs:
+      current-version: ${{ steps.pin.outputs.current-version }}
+      updated: ${{ steps.pin.outputs.updated }}
+      commit-sha: ${{ steps.pin.outputs.commit-sha }}
+      pr-url: ${{ steps.pin.outputs.pr-url }}
+    steps:
+      - name: Mint deploy-bot token
+        id: app-token
+        uses: sca-templates/CI-CD-Templates/.github/actions/mint-app-token@66755baa61ec4d5134e0f63f693bcff8722c1759
+        with:
+          client-id: ${{ secrets.APP_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: "${{ github.repository }},${{ inputs.gitops-repo }}"
+
+      - name: Verify the release tag exists
+        if: ${{ !inputs.skip-tag-check }}
+        shell: bash
+        env:
+          release_tag: ${{ inputs.release-tag }}
+          repo: ${{ github.repository }}
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: |
+          set -euo pipefail
+          if ! gh release view "$release_tag" --repo "$repo" --json tagName >/dev/null 2>&1; then
+            echo "::error::release $release_tag not found in $repo; create the release before adopting it in prod"
+            exit 1
+          fi
+
+      - name: Install yq
+        id: yq
+        shell: bash
+        run: |
+          set -euo pipefail
+          YQ_TAG="4.53.6"
+          SHA256="c5f056448f973ae7d39b5401949648a78f2dc1947d6a8eb65be60d5c504b9385"
+          DIR="$RUNNER_TOOL_CACHE/yq/${YQ_TAG}/x64"
+          BIN="$DIR/yq"
+          if [ ! -x "$BIN" ]; then
+            mkdir -p "$DIR"
+            curl -fsSL "https://github.com/mikefarah/yq/releases/download/v${YQ_TAG}/yq_linux_amd64" -o "${BIN}.tmp"
+            echo "${SHA256}  ${BIN}.tmp" | sha256sum -c -
+            mv "${BIN}.tmp" "$BIN"
+            chmod +x "$BIN"
+          fi
+          echo "path=$BIN" >> "$GITHUB_OUTPUT"
+
+      - name: Pin the service in the prod registry
+        id: pin
+        shell: bash
+        env:
+          service: ${{ inputs.service }}
+          version: ${{ inputs.release-tag }}
+          gitops_repo: ${{ inputs.gitops-repo }}
+          base_branch: ${{ inputs.base-branch }}
+          registry_path: ${{ inputs.registry-path }}
+          yq_expression: ${{ inputs.yq-expression }}
+          set_expression: ${{ inputs.set-expression }}
+          mode: ${{ inputs.mode }}
+          dry_run: ${{ inputs.dry-run }}
+          bot_token: ${{ steps.app-token.outputs.token }}
+          yq: ${{ steps.yq.outputs.path }}
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: |
+          set -euo pipefail
+
+          case "$mode" in
+            pr|commit) ;;
+            *) echo "::error::mode must be pr or commit (got '$mode')"; exit 1 ;;
+          esac
+          if ! [[ "$service" =~ ^[A-Za-z0-9][A-Za-z0-9._-]*$ ]]; then
+            echo "::error::service '$service' is not a valid service name"
+            exit 1
+          fi
+          if ! [[ "$version" =~ ^v?[0-9]+\.[0-9]+\.[0-9]+ ]]; then
+            echo "::error::release-tag '$version' is not a semantic version"
+            exit 1
+          fi
+
+          READ_EXPR="$yq_expression"
+          if [ -z "$READ_EXPR" ]; then
+            READ_EXPR=".${service}.version // .applications.${service}.version // .services.${service}.version"
+          fi
+
+          GITOPS_DIR="$RUNNER_TEMP/adopt-prod"
+          rm -rf "$GITOPS_DIR"
+          mkdir -p "$GITOPS_DIR"
+          git -c "http.extraHeader=Authorization: Bearer ${bot_token}" clone --quiet --depth 1 \
+            --branch "$base_branch" "https://github.com/${gitops_repo}.git" "$GITOPS_DIR"
+          cd "$GITOPS_DIR"
+
+          if [ ! -f "$registry_path" ]; then
+            echo "::error::registry not found: $registry_path in ${gitops_repo}@${base_branch}"
+            exit 1
+          fi
+
+          CURRENT="$("$yq" eval "$READ_EXPR" "$registry_path" 2>/dev/null || true)"
+          if [ -z "$CURRENT" ] || [ "$CURRENT" = "null" ]; then
+            CURRENT=""
+          fi
+          echo "current-version=$CURRENT" >> "$GITHUB_OUTPUT"
+
+          if [ "$CURRENT" = "$version" ]; then
+            echo "No change — $service already pinned to $version in ${gitops_repo}"
+            echo "updated=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          SET_EXPR="$set_expression"
+          if [ -z "$SET_EXPR" ]; then
+            for candidate in ".${service}.version" ".applications.${service}.version" ".services.${service}.version"; do
+              VALUE="$("$yq" eval "$candidate" "$registry_path" 2>/dev/null || true)"
+              if [ -n "$VALUE" ] && [ "$VALUE" != "null" ]; then
+                SET_EXPR="$candidate"
+                break
+              fi
+            done
+            [ -n "$SET_EXPR" ] || SET_EXPR=".${service}.version"
+          fi
+
+          "$yq" eval -i "$SET_EXPR = \"$version\"" "$registry_path"
+
+          if [ "$dry_run" = "true" ]; then
+            echo "::warning::dry-run — change NOT committed"
+            git --no-pager diff -- "$registry_path"
+            echo "updated=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          if [ -n "$CURRENT" ]; then
+            COMMIT_MSG="chore(services): pin ${service} ${CURRENT} -> ${version}"
+          else
+            COMMIT_MSG="chore(services): pin ${service} to ${version}"
+          fi
+          git config user.name "sca-deploy-bot"
+          git config user.email "sca-deploy-bot@users.noreply.github.com"
+
+          OLD="${CURRENT:-none}"
+          BODY="Pins \`${service}\` from \`${OLD}\` to \`${version}\` in \`${registry_path}\`. "
+          BODY+="A human approves and merges; ArgoCD syncs \`prod\` in the next manual sync window."
+
+          if [ "$mode" = "pr" ]; then
+            BRANCH="adopt/${service}-${version}"
+            EXISTING_PR="$(gh pr list --repo "$gitops_repo" --state open --head "$BRANCH" --json url --jq '.[0].url' 2>/dev/null || true)"
+            if [ -n "$EXISTING_PR" ]; then
+              echo "Reusing open PR for ${BRANCH}: ${EXISTING_PR}"
+              echo "updated=true" >> "$GITHUB_OUTPUT"
+              echo "pr-url=$EXISTING_PR" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+            git checkout -q -b "$BRANCH"
+            git add -- "$registry_path"
+            git commit -q -m "$COMMIT_MSG"
+            git -c "http.extraHeader=Authorization: Bearer ${bot_token}" push -q -u origin "$BRANCH"
+            PR_URL="$(gh pr create --repo "$gitops_repo" --base "$base_branch" --head "$BRANCH" \
+              --title "$COMMIT_MSG" --body "$BODY")"
+            echo "Opened ${PR_URL}"
+            {
+              echo "updated=true"
+              echo "commit-sha=$(git rev-parse HEAD)"
+              echo "pr-url=$PR_URL"
+            } >> "$GITHUB_OUTPUT"
+          else
+            git add -- "$registry_path"
+            git commit -q -m "$COMMIT_MSG"
+            git -c "http.extraHeader=Authorization: Bearer ${bot_token}" push -q origin "HEAD:${base_branch}"
+            echo "Pinned ${service}@${version} -> ${gitops_repo}@${base_branch} (${registry_path})"
+            {
+              echo "updated=true"
+              echo "commit-sha=$(git rev-parse HEAD)"
+            } >> "$GITHUB_OUTPUT"
+          fi
