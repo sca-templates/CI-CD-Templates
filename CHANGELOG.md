@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.1.0](https://github.com/sca-templates/CI-CD-Templates/compare/v2.0.1...v2.1.0) (2026-09-20)
+
+
+### Features
+
+* **ci:** add latest promotion workflow and update release config ([#28](https://github.com/sca-templates/CI-CD-Templates/issues/28)) ([6c047b9](https://github.com/sca-templates/CI-CD-Templates/commit/6c047b9d3246235cf8bdb1f75022f09639f7e2ad))
+
 ## [2.0.1](https://github.com/sca-templates/CI-CD-Templates/compare/v2.0.0...v2.0.1) (2026-09-20)
 
 
