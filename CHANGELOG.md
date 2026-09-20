@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.2.0](https://github.com/sca-templates/CI-CD-Templates/compare/v2.1.0...v2.2.0) (2026-09-20)
+
+
+### Features
+
+* **ci:** promote selected refs with QA approval gate ([#30](https://github.com/sca-templates/CI-CD-Templates/issues/30)) ([276ff28](https://github.com/sca-templates/CI-CD-Templates/commit/276ff2821c56a8ac24564bc48f03622d55d2b3b1))
+
 ## [2.1.0](https://github.com/sca-templates/CI-CD-Templates/compare/v2.0.1...v2.1.0) (2026-09-20)
 
 
