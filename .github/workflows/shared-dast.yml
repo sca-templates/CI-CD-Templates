@@ -41,7 +41,7 @@ jobs:
 
       - name: Run ZAP full scan
         if: ${{ inputs.scan-type == 'full' }}
-        uses: zaproxy/action-full-scan@a34710cc692896d035e7bf89bbcf5d40ea422110 # v0.9.0
+        uses: zaproxy/action-full-scan@bdd21ad4090d552d299261226c553efbc216f5ee # v0.9.0
         with:
           target: ${{ inputs.target-url }}
           cmd_options: ${{ inputs.cmd-options }}
