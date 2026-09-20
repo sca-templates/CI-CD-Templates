@@ -51,7 +51,7 @@ jobs:
 
       - name: Run ZAP baseline scan
         if: ${{ inputs.scan-type != 'full' }}
-        uses: zaproxy/action-baseline@a418de766254e096fa7d9e30f8dc9662b58df224 # v0.9.0
+        uses: zaproxy/action-baseline@41aee98ebc7cf2802c3beae4e7d4336413a21e43 # v0.9.0
         with:
           target: ${{ inputs.target-url }}
           cmd_options: ${{ inputs.cmd-options }}
