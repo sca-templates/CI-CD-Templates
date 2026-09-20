@@ -138,8 +138,10 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Check licenses
+        env:
+          LICENSE_ALLOWED: ${{ inputs.license-allowed }}
         run: |
-          echo "License compliance check — allowed: ${{ inputs.license-allowed }}"
+          echo "License compliance check — allowed: ${LICENSE_ALLOWED}"
           # TODO: implement with license-checker or similar tool
           echo "TODO: implement license compliance check"
 
@@ -213,12 +215,17 @@ jobs:
         run: pipx install semgrep==1.177.0
 
       - name: Semgrep scan
+        env:
+          SEMGREP_CONFIG: ${{ inputs.semgrep-config }}
+          SEMGREP_FAIL_ON: ${{ inputs.semgrep-fail-on }}
         run: |
+          FAIL_ARGS=""
+          if [ "${SEMGREP_FAIL_ON}" == "true" ]; then FAIL_ARGS="--error"; fi
           semgrep scan \
-            --config "${{ inputs.semgrep-config }}" \
+            --config "${SEMGREP_CONFIG}" \
             --metrics=off \
             --sarif-output semgrep.sarif \
-            ${{ inputs.semgrep-fail-on && '--error' || '' }}
+            ${FAIL_ARGS}
 
       - name: Upload SARIF
         if: always()
