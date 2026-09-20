@@ -7,7 +7,7 @@ All shared workflows live flat in `.github/workflows/` (GitHub does not support 
 | Workflow | File | Description |
 |---|---|---|
 | Static Validation | `shared-validate-static.yml` | Markdown, YAML, shell, actionlint |
-| Security Scan | `shared-security-scan.yml` | gitleaks, osv-scanner, license check |
+| Security Scan | `shared-security-scan.yml` | gitleaks, osv-scanner, license check, SonarQube Cloud, Semgrep (OWASP), OWASP Dependency-Check |
 | Release Flow | `shared-release-flow.yml` | release-please + signed tags + optional release-PR auto-merge |
 | QA Lock Check | `shared-qa-lock-check.yml` | Block merges while release PR open |
 | CodeQL | `shared-codeql.yml` | CodeQL static analysis (GitHub Actions) |
@@ -21,6 +21,7 @@ All shared workflows live flat in `.github/workflows/` (GitHub does not support 
 | Node.js | `stack-node-js.yml` | JavaScript/Express: install, lint, test; optional publish |
 | Node TypeScript | `stack-node-ts.yml` | TypeScript: install, lint, test, build; optional publish |
 | Nest | `stack-nest.yml` | NestJS: install, lint, format, test, build; optional publish |
+| DAST (OWASP ZAP) | `shared-dast.yml` | OWASP ZAP baseline/full scan against a running service URL |
 
 ## Usage
 
@@ -42,6 +43,117 @@ jobs:
       APP_ID: ${{ secrets.APP_ID }}
       APP_PRIVATE_KEY: ${{ secrets.APP_PRIVATE_KEY }}
 ```
+
+### Security Scan
+
+The single entry point for every repo's security checks. All jobs are **on by
+default** and **skip silently** when their required secret is missing (same
+pattern as Changelog Notify), so a repo pulls the whole suite with one
+`uses:` line and the jobs light up as the org configures its secrets.
+
+| Job | Tool | Secret required | Behavior |
+|---|---|---|---|
+| Secrets | gitleaks | — | Fails on findings; SARIF to code scanning |
+| Dependency Vulnerabilities | osv-scanner | — | Fails on findings |
+| License | *todo* | — | Off by default (`license-check`) |
+| SonarQube Cloud | sonarqube-scan-action | `SONAR_TOKEN` | SAST; skipped silently without the token |
+| Semgrep (OWASP rules) | Semgrep CE | — | SAST, SARIF to code scanning; report-only unless `semgrep-fail-on` |
+| Dependency Vulnerabilities (OWASP) | OWASP Dependency-Check | `NVD_API_KEY` | NVD/CPE SCA; fails on CVSS ≥ `fail-on-cvss`; skipped silently without the key |
+
+All jobs are **100% free at the org scale** and upgrade to paid tiers without
+changing the templates: SonarQube's free tier covers private code up to **50k
+LOC** (public repos are unlimited), Semgrep CE is open source, and the NVD API
+key is free from [NIST](https://nvd.nist.gov/developers/request-an-api-key).
+
+SonarQube Cloud projects are auto-created on the first analysis from an
+organization token. Set `SONAR_ORGANIZATION` (or `SONAR_PROJECT_KEY`) on the
+caller to pin them, or commit a `sonar-project.properties` per repo.
+
+```yaml
+jobs:
+  security:
+    uses: sca-templates/CI-CD-Templates/.github/workflows/shared-security-scan.yml@main
+    with:
+      sonar: true
+      sonar-organization: sca-templates
+      sonar-project-key: sca-api
+      semgrep: true
+      semgrep-config: "p/owasp-top-ten"
+      semgrep-fail-on: true
+      dependency-check: true
+      fail-on-cvss: "7"
+      suppression-file: ".dependency-check/suppressions.xml"
+    secrets:
+      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+      NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
+```
+
+> **Callers must grant `security-events: write` at workflow level.** The
+> `semgrep` and `dependency-check` jobs request it to upload SARIF results to
+> code scanning, and GitHub validates reusable-workflow permissions statically
+> against the caller's `permissions:` block. Callers without it fail before the
+> workflow starts. The `sonarqube` job only needs `contents: read`.
+>
+> **Dependency-Check is the slowest job** (NVD data sync). Prefer running the
+> security scan on `push` to `main` plus a schedule, or keep the fast gates
+> (gitleaks + osv-scanner) on every PR and run the full scan on the
+> schedule.
+
+Inputs:
+
+| Input | Default | Description |
+|---|---|---|
+| `gitleaks` | `true` | Run gitleaks secret scanning |
+| `osv-scan` | `true` | Run osv-scanner dependency scan |
+| `license-check` | `false` | Run the (not yet implemented) license check |
+| `license-allowed` | `MIT,Apache-2.0,ISC,BSD-2-Clause,BSD-3-Clause` | Allowed SPDX licenses |
+| `sonar` | `true` | Run SonarQube Cloud SAST |
+| `sonar-organization` | `""` | SonarQube Cloud organization key (else `sonar-project.properties`) |
+| `sonar-project-key` | `""` | SonarQube project key (else `sonar-project.properties`) |
+| `semgrep` | `true` | Run Semgrep static analysis |
+| `semgrep-config` | `p/ci` | Semgrep rules: `p/ci`, `p/owasp-top-ten`, `p/secrets`, or a local path |
+| `semgrep-fail-on` | `false` | Fail the job on Semgrep findings (report-only by default) |
+| `dependency-check` | `true` | Run OWASP Dependency-Check |
+| `fail-on-cvss` | `7` | Fail Dependency-Check on findings with CVSS ≥ this score |
+| `suppression-file` | `""` | Path to a Dependency-Check suppression XML |
+
+Secrets: `SONAR_TOKEN`, `NVD_API_KEY` (both optional, see
+[secrets.md](secrets.md)).
+
+### DAST (OWASP ZAP)
+
+For **services** with a running URL (staging/dev), not for library repos. Run it
+on a schedule, not as a PR gate. When `target-url` is empty every job is
+skipped (used by the repo's own `self-dast.yml`).
+
+```yaml
+# .github/workflows/dast.yml in a service repo
+name: DAST
+
+on:
+  schedule:
+    - cron: "0 8 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  dast:
+    uses: sca-templates/CI-CD-Templates/.github/workflows/shared-dast.yml@main
+    with:
+      target-url: https://qa.example.com
+      scan-type: baseline # or full
+      fail-on-alerts: false
+```
+
+SARIF is uploaded to code scanning with category `dast-zap`; the HTML report is
+attached as the `zap-reports` artifact.
+
+**Note on SonarQube PR decoration:** SonarQube Cloud reports the PR quality
+gate through its own GitHub integration (SonarQube app or checks). The
+workflow only needs `contents: read`; no looser permissions are required.
 
 > **Callers must grant `pull-requests: write` at workflow level.** The nested
 > `auto-merge` job requests it, and GitHub validates reusable-workflow

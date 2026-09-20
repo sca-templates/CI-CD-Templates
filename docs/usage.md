@@ -31,6 +31,29 @@ jobs:
     secrets: inherit
 ```
 
+The security scan ships every check **on by default** (gitleaks, osv-scanner,
+SonarQube Cloud, Semgrep with OWASP rules, OWASP Dependency-Check). Jobs skip
+silently when their secret is missing, so this minimal call already works — the
+checks activate org-wide once `SONAR_TOKEN` and `NVD_API_KEY` exist on the
+organization. Toggle and tune explicitly if you want:
+
+```yaml
+  security:
+    uses: sca-templates/CI-CD-Templates/.github/workflows/shared-security-scan.yml@main
+    with:
+      sonar: true
+      sonar-organization: sca-templates
+      semgrep-config: "p/owasp-top-ten"
+      semgrep-fail-on: true
+      fail-on-cvss: "7"
+    secrets:
+      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+      NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
+```
+
+See [workflows.md](workflows.md#security-scan) for all inputs and
+[secrets.md](secrets.md#security-scanning) for the secrets involved.
+
 ## Referencing composite actions
 
 ```yaml

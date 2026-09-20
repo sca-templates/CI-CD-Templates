@@ -44,6 +44,28 @@ each value at rest (libsodium sealed box) and injects it only as
 | `DEPLOY_APP_ID` | yes | `sca-deploy-bot` GitHub App ID |
 | `DEPLOY_APP_PRIVATE_KEY` | yes | Deploy-bot App private key (PEM) |
 
+### Security scanning
+
+Consumed by `shared-security-scan.yml` and `shared-dast.yml`. All are optional:
+when a secret is missing the corresponding job **skips silently**, so repos get
+the checks the moment the org configures the secrets — no per-repo edits.
+
+| Secret / Variable | Required | Purpose | Where |
+| --- | --- | --- | --- |
+| `SONAR_TOKEN` (secret) | for SonarQube | SonarQube Cloud analysis token (organización) | [SonarQube Cloud](https://www.sonarsource.com/products/sonarqube/) account |
+| `SONAR_ORGANIZATION` (variable) | recommended | SonarQube Cloud org key passed as `-Dsonar.organization` | SonarQube Cloud account |
+| `SONAR_PROJECT_KEY` (variable) | optional | SonarQube project key; default: `sonar-project.properties` | SonarQube Cloud project |
+| `NVD_API_KEY` (secret) | for Dependency-Check | NIST NVD API key — **free**, removes the NVD rate-limit | [NVD request](https://nvd.nist.gov/developers/request-an-api-key) |
+
+**Free-tier constraint:** SonarQube's free plan analyzes private code up to
+**50k LOC per organization** (public repos unlimited). When the org approaches
+the limit, upgrade to a paid Team/Enterprise plan — the templates keep working
+unchanged.
+
+Configure these at the **organization level** (variables for the two
+`SONAR_*` non-secret values, secrets for `SONAR_TOKEN` and `NVD_API_KEY`) so
+every repo inherits them via `secrets: inherit`.
+
 The deploy secrets are named with the `*_DEPLOY` suffix (recommended) so they
 **do not collide** with the release-bot `APP_ID`/`APP_PRIVATE_KEY` on repos that
 run both planes. The shared deploy workflows declare their inputs as

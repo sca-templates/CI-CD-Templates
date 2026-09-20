@@ -1,0 +1,75 @@
+---
+name: "Shared: DAST (OWASP ZAP)"
+
+on:
+  workflow_call:
+    inputs:
+      target-url:
+        description: "Base URL of the running service to scan"
+        type: string
+        required: false
+      scan-type:
+        description: "Scan type: baseline (quick) or full"
+        type: string
+        default: "baseline"
+      fail-on-alerts:
+        description: "Fail the job when ZAP reports alerts"
+        type: boolean
+        default: false
+      cmd-options:
+        description: "Extra zap.sh command line options"
+        type: string
+        default: ""
+
+permissions:
+  contents: read
+
+concurrency:
+  group: dast-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  zap:
+    name: ZAP ${{ inputs.scan-type }} scan
+    if: ${{ inputs.target-url != '' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Run ZAP full scan
+        if: ${{ inputs.scan-type == 'full' }}
+        uses: zaproxy/action-full-scan@a34710cc692896d035e7bf89bbcf5d40ea422110 # v0.9.0
+        with:
+          target: ${{ inputs.target-url }}
+          cmd_options: ${{ inputs.cmd-options }}
+          fail_action: ${{ inputs.fail-on-alerts }}
+          allow_issue_writing: false
+          sarif_file: zap.sarif
+
+      - name: Run ZAP baseline scan
+        if: ${{ inputs.scan-type != 'full' }}
+        uses: zaproxy/action-baseline@a418de766254e096fa7d9e30f8dc9662b58df224 # v0.9.0
+        with:
+          target: ${{ inputs.target-url }}
+          cmd_options: ${{ inputs.cmd-options }}
+          fail_action: ${{ inputs.fail-on-alerts }}
+          allow_issue_writing: false
+          sarif_file: zap.sarif
+
+      - name: Upload SARIF to code scanning
+        if: always()
+        uses: github/codeql-action/upload-sarif@b96794f015dfd88f77b49b1c93e0fa7110f94c63 # v4
+        with:
+          sarif_file: zap.sarif
+          category: dast-zap
+
+      - name: Upload ZAP report
+        if: always()
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.1
+        with:
+          name: zap-reports
+          path: reports
+          if-no-files-found: ignore

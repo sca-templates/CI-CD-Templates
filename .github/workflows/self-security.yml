@@ -28,6 +28,13 @@ jobs:
       osv-scan: true
       license-check: true
       license-allowed: "MIT,Apache-2.0,ISC,BSD-2-Clause,BSD-3-Clause"
+      # Config-only repo: SonarQube off to spare the free-tier LOC quota;
+      # Semgrep and Dependency-Check exercise the new checks.
+      sonar: false
+      semgrep: true
+      semgrep-config: "p/ci"
+      dependency-check: true
+      fail-on-cvss: "7"
 
   codeql:
     name: Analyze (GitHub Actions)

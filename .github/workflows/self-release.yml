@@ -21,4 +21,7 @@ jobs:
     uses: ./.github/workflows/shared-release-flow.yml
     with:
       release-type: "simple"
-    secrets: inherit
+    secrets:
+      APP_ID: ${{ secrets.APP_ID }}
+      APP_PRIVATE_KEY: ${{ secrets.APP_PRIVATE_KEY }}
+      RELEASE_GPG_PRIVATE_KEY: ${{ secrets.RELEASE_GPG_PRIVATE_KEY }}
