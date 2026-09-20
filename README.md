@@ -24,7 +24,7 @@ Centralized, reusable CI/CD templates for the [sca-templates](https://github.com
 | Workflow | File | Description |
 |---|---|---|
 | Static Validation | `shared-validate-static.yml` | Markdown, YAML, shell, actionlint, template structure tests |
-| Security Scan | `shared-security-scan.yml` | gitleaks, osv-scanner, license check |
+| Security Scan | `shared-security-scan.yml` | gitleaks, osv-scanner, license check, SonarQube Cloud, Semgrep (OWASP), OWASP Dependency-Check |
 | Release Flow | `shared-release-flow.yml` | release-please + signed tags, optional release-PR auto-merge |
 | QA Lock Check | `shared-qa-lock-check.yml` | Block merges while release PR open |
 | CodeQL | `shared-codeql.yml` | CodeQL static analysis (GitHub Actions) |
@@ -35,6 +35,7 @@ Centralized, reusable CI/CD templates for the [sca-templates](https://github.com
 | Auto Label | `shared-auto-label.yml` | Assign labels to PRs from type, changed files, and stack (idempotent, add-only) |
 | Changelog Notify | `shared-changelog-notify.yml` | Post release summaries to Slack or Discord; skips silently when no webhook |
 | Stale Notify | `shared-stale-notify.yml` | Comment on inactive issues and PRs; never closes or labels them |
+| DAST (OWASP ZAP) | `shared-dast.yml` | OWASP ZAP baseline/full scan against a running service URL |
 
 ### Stack workflows
 

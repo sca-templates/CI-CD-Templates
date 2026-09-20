@@ -1,0 +1,19 @@
+---
+name: "Self: DAST"
+
+on:
+  schedule:
+    - cron: "0 8 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: self-dast-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  dast:
+    name: DAST (no target configured)
+    uses: ./.github/workflows/shared-dast.yml
