@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.0.1](https://github.com/sca-templates/CI-CD-Templates/compare/v2.0.0...v2.0.1) (2026-09-20)
+
+
+### Bug Fixes
+
+* **ci:** scope workflow permissions to jobs ([#22](https://github.com/sca-templates/CI-CD-Templates/issues/22)) ([0601d9e](https://github.com/sca-templates/CI-CD-Templates/commit/0601d9ec66c322d9d4f554e9c05b934a26ddfec1))
+
 ## [2.0.0](https://github.com/sca-templates/CI-CD-Templates/compare/v1.1.1...v2.0.0) (2026-09-20)
 
 
