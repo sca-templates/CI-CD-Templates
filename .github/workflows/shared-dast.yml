@@ -41,7 +41,7 @@ jobs:
 
       - name: Run ZAP full scan
         if: ${{ inputs.scan-type == 'full' }}
-        uses: zaproxy/action-full-scan@a34710cc692896d035e7bf89bbcf5d40ea422110 # v0.9.0
+        uses: zaproxy/action-full-scan@bdd21ad4090d552d299261226c553efbc216f5ee # v0.9.0
         with:
           target: ${{ inputs.target-url }}
           cmd_options: ${{ inputs.cmd-options }}
@@ -51,7 +51,7 @@ jobs:
 
       - name: Run ZAP baseline scan
         if: ${{ inputs.scan-type != 'full' }}
-        uses: zaproxy/action-baseline@a418de766254e096fa7d9e30f8dc9662b58df224 # v0.9.0
+        uses: zaproxy/action-baseline@41aee98ebc7cf2802c3beae4e7d4336413a21e43 # v0.9.0
         with:
           target: ${{ inputs.target-url }}
           cmd_options: ${{ inputs.cmd-options }}
@@ -68,7 +68,7 @@ jobs:
 
       - name: Upload ZAP report
         if: always()
-        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.1
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: zap-reports
           path: reports
