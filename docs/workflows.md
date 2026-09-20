@@ -8,11 +8,13 @@ All shared workflows live flat in `.github/workflows/` (GitHub does not support 
 |---|---|---|
 | Static Validation | `shared-validate-static.yml` | Markdown, YAML, shell, actionlint |
 | Security Scan | `shared-security-scan.yml` | gitleaks, osv-scanner, license check |
-| Release Flow | `shared-release-flow.yml` | release-please + signed tags |
+| Release Flow | `shared-release-flow.yml` | release-please + signed tags + optional release-PR auto-merge |
 | QA Lock Check | `shared-qa-lock-check.yml` | Block merges while release PR open |
 | CodeQL | `shared-codeql.yml` | CodeQL static analysis (GitHub Actions) |
 | Scorecard | `shared-scorecard.yml` | OpenSSF Scorecard supply-chain security |
-| GitOps Promote | `shared-gitops-promote.yml` | Promote service image tags into `infra-kubernetes` (commit or PR, prod release gate) |
+| Service Promote | `shared-service-promote.yml` | Move `deploy/<env>` refs (dev/qa) so ArgoCD tracks the promoted commit |
+| Adopt Prod | `shared-adopt-prod.yml` | Pin a release tag as the version running in prod (GitOps registry, PR or direct commit) |
+| Enforce Latest | `shared-enforce-latest.yml` | Correct GitHub `latest` release to the version actually deployed in prod |
 | Auto Label | `shared-auto-label.yml` | Assign labels to PRs from type, changed files, and stack (idempotent, add-only) |
 | Changelog Notify | `shared-changelog-notify.yml` | Post release summaries to Slack or Discord; skips silently when no webhook |
 | Stale Notify | `shared-stale-notify.yml` | Comment on inactive issues and PRs; never closes or labels them |
@@ -41,43 +43,79 @@ jobs:
       APP_PRIVATE_KEY: ${{ secrets.APP_PRIVATE_KEY }}
 ```
 
-### GitOps promote (manual dispatch wrapper)
+### Service Promote (dev/qa refs)
 
-Promotions are manual. Each service repo declares a thin `workflow_dispatch` wrapper that calls the shared workflow, so a human picks the environment and image tag:
+Moves the `deploy/dev` or `deploy/qa` branch ref of the service repo to a target
+commit (`--force` by the deploy bot). ArgoCD Applications point at these refs,
+so the ref move is the promotion. Implements the trunk-based model documented in
+[service-release-model.md](service-release-model.md).
 
 ```yaml
-# .github/workflows/deploy.yml in the service repo
-name: Deploy
+# .github/workflows/promote.yml in the service repo
+name: Promote
 
 on:
   workflow_dispatch:
     inputs:
       environment:
         type: choice
-        options: [dev, qa, prod]
-      image-tag:
+        options: [dev, qa]
+      service:
         required: true
-        type: string
 
 jobs:
-  deploy:
-    uses: sca-templates/CI-CD-Templates/.github/workflows/shared-gitops-promote.yml@main
+  promote:
+    uses: sca-templates/CI-CD-Templates/.github/workflows/shared-service-promote.yml@main
     with:
       environment: ${{ inputs.environment }}
-      service: <service-name>
-      image-tag: ${{ inputs.image-tag }}
+      service: ${{ inputs.service }}
     secrets: inherit
 ```
 
-Behavior by environment:
+`run-publish: true` additionally builds and pushes the `sha-<commit>` image to
+GHCR (exact `stack-nest.yml` publish pattern, `packages: write` on the job).
+`dry-run: true` reports the ref move without pushing.
 
-| Environment | Applies to `infra-kubernetes` via | Notes |
-|---|---|---|
-| dev | direct commit to `main` | fastest feedback loop |
-| qa | direct commit to `main` | team runs detailed tests |
-| prod | pull request + human approval | gated: requires an open release-please PR first |
+### Adopt Prod (version pin)
 
-See [usage.md](usage.md) for the full reference.
+Pins a release tag as the version running in prod inside the GitOps registry
+(`argocd/services-prod.yaml` by default) via a pull request
+`adopt/<service>-<tag>` or a direct commit. The tag must already exist in the
+service repo (`gh release view`), unless `skip-tag-check: true`.
+
+```yaml
+jobs:
+  adopt:
+    uses: sca-templates/CI-CD-Templates/.github/workflows/shared-adopt-prod.yml@main
+    with:
+      service: sca-api
+      release-tag: v1.2.3
+    secrets: inherit
+```
+
+The prod pin is the single source of truth the reconcile loop reads back from.
+
+### Enforce Latest (latest = reality)
+
+Reads the version pinned in the GitOps registry (or an explicit
+`release-tag`), validates it is semver, harmonizes the release list
+(pre-releases for every full release newer than the deployed tag, restore
+of older ones), and marks the deployed tag as GitHub `latest`. `dry-run: true`
+reports without mutating.
+
+```yaml
+jobs:
+  enforce:
+    uses: sca-templates/CI-CD-Templates/.github/workflows/shared-enforce-latest.yml@main
+    with:
+      service: sca-api
+    secrets: inherit
+```
+
+Outputs: `release-tag`, `changed`, `current-latest`.
+
+See [service-release-model.md](service-release-model.md) for the full
+deployment contract, the bots involved, and the reconciliation loop.
 
 ### Auto Label
 

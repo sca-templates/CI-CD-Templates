@@ -1,0 +1,275 @@
+---
+name: "Shared: Enforce Latest"
+
+on:
+  workflow_call:
+    inputs:
+      service:
+        description: "Service name used to locate its pin in the GitOps registry"
+        type: string
+        required: true
+      repo:
+        description: "Repository whose latest release is corrected (owner/repo); defaults to the caller"
+        type: string
+        default: ""
+      gitops-repo:
+        description: "GitOps repository holding the prod registry"
+        type: string
+        default: "sca-templates/infra-kubernetes"
+      base-branch:
+        description: "Base branch of the GitOps repository"
+        type: string
+        default: "main"
+      registry-path:
+        description: "Registry file whose version pin represents prod"
+        type: string
+        default: "argocd/services-prod.yaml"
+      yq-expression:
+        description: "yq expression reading the pinned version; defaults to a service lookup"
+        type: string
+        default: ""
+      tag-source:
+        description: "Where to read the deployed tag from: registry or explicit"
+        type: string
+        default: "registry"
+      release-tag:
+        description: "Deployed release tag when tag-source is explicit"
+        type: string
+        default: ""
+      harmonize-releases:
+        description: "Keep releases newer than the deployed tag as pre-releases and restore older ones"
+        type: boolean
+        default: true
+      dry-run:
+        description: "Report the correction without changing any release"
+        type: boolean
+        default: false
+    secrets:
+      APP_ID:
+        description: "Deploy-bot GitHub App ID (contents: write on the service and GitOps repos)"
+        required: true
+      APP_PRIVATE_KEY:
+        description: "Deploy-bot GitHub App private key (PEM)"
+        required: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: enforce-latest-${{ inputs.service }}
+  cancel-in-progress: false
+
+jobs:
+  enforce:
+    name: Enforce latest release
+    runs-on: ubuntu-latest
+    outputs:
+      release-tag: ${{ steps.resolve.outputs.release-tag }}
+      changed: ${{ steps.mark.outputs.changed }}
+      current-latest: ${{ steps.mark.outputs.current-latest }}
+    steps:
+      - name: Mint deploy-bot token
+        id: app-token
+        uses: sca-templates/CI-CD-Templates/.github/actions/mint-app-token@66755baa61ec4d5134e0f63f693bcff8722c1759
+        with:
+          client-id: ${{ secrets.APP_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: "${{ inputs.repo || github.repository }},${{ inputs.gitops-repo }}"
+
+      - name: Install yq
+        id: yq
+        if: ${{ inputs.tag-source == 'registry' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          YQ_TAG="4.53.6"
+          SHA256="c5f056448f973ae7d39b5401949648a78f2dc1947d6a8eb65be60d5c504b9385"
+          DIR="$RUNNER_TOOL_CACHE/yq/${YQ_TAG}/x64"
+          BIN="$DIR/yq"
+          if [ ! -x "$BIN" ]; then
+            mkdir -p "$DIR"
+            curl -fsSL "https://github.com/mikefarah/yq/releases/download/v${YQ_TAG}/yq_linux_amd64" -o "${BIN}.tmp"
+            echo "${SHA256}  ${BIN}.tmp" | sha256sum -c -
+            mv "${BIN}.tmp" "$BIN"
+            chmod +x "$BIN"
+          fi
+          echo "path=$BIN" >> "$GITHUB_OUTPUT"
+
+      - name: Read deployed version from the GitOps registry
+        id: registry
+        if: ${{ inputs.tag-source == 'registry' }}
+        shell: bash
+        env:
+          service: ${{ inputs.service }}
+          gitops_repo: ${{ inputs.gitops-repo }}
+          base_branch: ${{ inputs.base-branch }}
+          registry_path: ${{ inputs.registry-path }}
+          yq_expression: ${{ inputs.yq-expression }}
+          bot_token: ${{ steps.app-token.outputs.token }}
+          yq: ${{ steps.yq.outputs.path }}
+        run: |
+          set -euo pipefail
+
+          if ! [[ "$service" =~ ^[A-Za-z0-9][A-Za-z0-9._-]*$ ]]; then
+            echo "::error::service '$service' is not a valid service name"
+            exit 1
+          fi
+
+          READ_EXPR="$yq_expression"
+          if [ -z "$READ_EXPR" ]; then
+            READ_EXPR=".${service}.version // .applications.${service}.version // .services.${service}.version"
+          fi
+
+          GITOPS_DIR="$RUNNER_TEMP/enforce-latest"
+          rm -rf "$GITOPS_DIR"
+          mkdir -p "$GITOPS_DIR"
+          git -c "http.extraHeader=Authorization: Bearer ${bot_token}" clone --quiet --depth 1 \
+            --branch "$base_branch" "https://github.com/${gitops_repo}.git" "$GITOPS_DIR"
+
+          REGISTRY="$GITOPS_DIR/$registry_path"
+          if [ ! -f "$REGISTRY" ]; then
+            echo "::error::registry not found: $registry_path in ${gitops_repo}@${base_branch}"
+            exit 1
+          fi
+
+          VERSION="$("$yq" eval "$READ_EXPR" "$REGISTRY" 2>/dev/null || true)"
+          if [ -z "$VERSION" ] || [ "$VERSION" = "null" ]; then
+            echo "::error::no version pin found for '$service' in $registry_path"
+            exit 1
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Resolve target release tag
+        id: resolve
+        shell: bash
+        env:
+          tag_source: ${{ inputs.tag-source }}
+          explicit_tag: ${{ inputs.release-tag }}
+          registry_version: ${{ steps.registry.outputs.version }}
+        run: |
+          set -euo pipefail
+          case "$tag_source" in
+            registry|explicit) ;;
+            *) echo "::error::tag-source must be registry or explicit (got '$tag_source')"; exit 1 ;;
+          esac
+          TAG="$explicit_tag"
+          if [ "$tag_source" = "registry" ]; then
+            TAG="$registry_version"
+          fi
+          if [ -z "$TAG" ]; then
+            echo "::error::could not resolve a release tag (empty registry pin or explicit tag)"
+            exit 1
+          fi
+          if ! [[ "$TAG" =~ ^v?[0-9]+\.[0-9]+\.[0-9]+ ]]; then
+            echo "::error::release tag '$TAG' is not a semantic version"
+            exit 1
+          fi
+          echo "release-tag=$TAG" >> "$GITHUB_OUTPUT"
+
+      - name: Mark deployed release as latest
+        id: mark
+        shell: bash
+        env:
+          repo: ${{ inputs.repo || github.repository }}
+          tag: ${{ steps.resolve.outputs.release-tag }}
+          harmonize: ${{ inputs.harmonize-releases }}
+          dry_run: ${{ inputs.dry-run }}
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: |
+          set -euo pipefail
+
+          ver_gt() {
+            local a="${1#v}" b="${2#v}"
+            a="${a%%-*}"
+            b="${b%%-*}"
+            local -a ap bp
+            IFS=. read -r -a ap <<< "$a"
+            IFS=. read -r -a bp <<< "$b"
+            local i av bv
+            for i in 0 1 2; do
+              av="${ap[$i]:-0}"
+              bv="${bp[$i]:-0}"
+              [[ "$av" =~ ^[0-9]+$ ]] || av=0
+              [[ "$bv" =~ ^[0-9]+$ ]] || bv=0
+              if [ "$av" -gt "$bv" ]; then return 0; fi
+              if [ "$av" -lt "$bv" ]; then return 1; fi
+            done
+            return 1
+          }
+
+          TARGET="$(gh release view "$tag" --repo "$repo" --json tagName,isDraft,isPrerelease,id 2>/dev/null || true)"
+          if [ -z "$TARGET" ] || [ "$(printf '%s' "$TARGET" | jq -r '.tagName')" != "$tag" ]; then
+            echo "::error::release $tag not found in $repo"
+            exit 1
+          fi
+          if [ "$(printf '%s' "$TARGET" | jq -r '.isDraft')" = "true" ]; then
+            echo "::error::release $tag is a draft and cannot be the latest release"
+            exit 1
+          fi
+          TARGET_PRE="$(printf '%s' "$TARGET" | jq -r '.isPrerelease')"
+
+          RELEASES="$(gh release list --repo "$repo" --limit 100 --json tagName,isDraft,isPrerelease,isLatest)"
+          CURRENT="$(printf '%s' "$RELEASES" | jq -r '.[] | select(.isLatest == true) | .tagName' | head -n1)"
+          echo "current-latest=$CURRENT" >> "$GITHUB_OUTPUT"
+
+          DEMOTE=()
+          RESTORE=()
+          if [ "$harmonize" = "true" ]; then
+            while IFS= read -r line; do
+              [ -n "$line" ] || continue
+              local_tag="$(printf '%s' "$line" | jq -r '.tagName')"
+              local_pre="$(printf '%s' "$line" | jq -r '.isPrerelease')"
+              local_draft="$(printf '%s' "$line" | jq -r '.isDraft')"
+              [ "$local_draft" = "true" ] && continue
+              if ! [[ "$local_tag" =~ ^v?[0-9]+\.[0-9]+\.[0-9]+ ]]; then
+                continue
+              fi
+              if [ "$local_tag" = "$tag" ]; then
+                continue
+              fi
+              if ver_gt "$local_tag" "$tag"; then
+                [ "$local_pre" = "true" ] || DEMOTE+=("$local_tag")
+              elif ver_gt "$tag" "$local_tag"; then
+                [ "$local_pre" = "true" ] && RESTORE+=("$local_tag")
+              fi
+            done < <(printf '%s' "$RELEASES" | jq -c '.[]')
+
+            echo "Would keep as pre-release (newer): ${DEMOTE[*]:-none}"
+            echo "Would restore to full release (older): ${RESTORE[*]:-none}"
+          fi
+
+          NEEDS_TARGET_FULL="false"
+          [ "$TARGET_PRE" = "true" ] && NEEDS_TARGET_FULL="true"
+
+          CHANGED="false"
+          [ "${#DEMOTE[@]}" -gt 0 ] && CHANGED="true"
+          [ "${#RESTORE[@]}" -gt 0 ] && CHANGED="true"
+          [ "$NEEDS_TARGET_FULL" = "true" ] && CHANGED="true"
+          [ "$CURRENT" != "$tag" ] && CHANGED="true"
+
+          if [ "$dry_run" = "true" ]; then
+            echo "::warning::dry-run — release state NOT changed"
+            echo "changed=$CHANGED" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          for t in "${DEMOTE[@]:-}"; do
+            [ -n "$t" ] || continue
+            gh release edit "$t" --repo "$repo" --prerelease
+            echo "Pre-release: $t"
+          done
+
+          for t in "${RESTORE[@]:-}"; do
+            [ -n "$t" ] || continue
+            gh release edit "$t" --repo "$repo" --prerelease=false
+            echo "Full release: $t"
+          done
+
+          if [ "$TARGET_PRE" = "true" ]; then
+            gh release edit "$tag" --repo "$repo" --prerelease=false
+          fi
+
+          gh release edit "$tag" --repo "$repo" --latest
+          echo "Latest release: $tag in $repo"
+          echo "changed=$CHANGED" >> "$GITHUB_OUTPUT"
