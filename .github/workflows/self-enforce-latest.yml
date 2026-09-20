@@ -29,4 +29,6 @@ jobs:
       tag-source: explicit
       release-tag: ${{ inputs.release-tag }}
       dry-run: true
-    secrets: inherit
+    secrets:
+      APP_ID: ${{ secrets.DEPLOY_APP_ID }}
+      APP_PRIVATE_KEY: ${{ secrets.DEPLOY_APP_PRIVATE_KEY }}

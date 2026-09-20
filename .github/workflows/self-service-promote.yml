@@ -30,4 +30,6 @@ jobs:
       environment: ${{ inputs.environment }}
       service: ${{ inputs.service }}
       dry-run: true
-    secrets: inherit
+    secrets:
+      APP_ID: ${{ secrets.DEPLOY_APP_ID }}
+      APP_PRIVATE_KEY: ${{ secrets.DEPLOY_APP_PRIVATE_KEY }}
