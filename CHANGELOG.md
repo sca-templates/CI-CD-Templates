@@ -1,5 +1,16 @@
 # Changelog
 
+## [2.0.0](https://github.com/sca-templates/CI-CD-Templates/compare/v1.1.1...v2.0.0) (2026-09-20)
+
+
+### ⚠ BREAKING CHANGES
+
+* **deploy:** shared-gitops-promote.yml and gitops-bump-image are removed; consumers must migrate to shared-service-promote/adopt-prod/enforce-latest.
+
+### Features
+
+* **deploy:** replace GitOps promote with deploy model ([#19](https://github.com/sca-templates/CI-CD-Templates/issues/19)) ([55f1379](https://github.com/sca-templates/CI-CD-Templates/commit/55f1379db6dea5dd649581cae0fbcd3031a14389))
+
 ## [1.1.1](https://github.com/sca-templates/CI-CD-Templates/compare/v1.1.0...v1.1.1) (2026-09-18)
 
 
