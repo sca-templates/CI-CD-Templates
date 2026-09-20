@@ -74,7 +74,7 @@ jobs:
     steps:
       - name: Push deploy ref
         id: push
-        uses: sca-templates/CI-CD-Templates/.github/actions/push-deploy-ref@6c047b9d3246235cf8bdb1f75022f09639f7e2ad
+        uses: sca-templates/CI-CD-Templates/.github/actions/push-deploy-ref@d44e3cc4c907d9cf90ab1375640582d655fd3b70
         with:
           environment: ${{ inputs.environment }}
           service: ${{ inputs.service }}
@@ -97,7 +97,7 @@ jobs:
     steps:
       - name: Push deploy ref
         id: push
-        uses: sca-templates/CI-CD-Templates/.github/actions/push-deploy-ref@6c047b9d3246235cf8bdb1f75022f09639f7e2ad
+        uses: sca-templates/CI-CD-Templates/.github/actions/push-deploy-ref@d44e3cc4c907d9cf90ab1375640582d655fd3b70
         with:
           environment: ${{ inputs.environment }}
           service: ${{ inputs.service }}
