@@ -138,10 +138,12 @@ Deployments follow a trunk-based model with ArgoCD/GitOps — there is no releas
 PR for deployments. The full contract is in
 [service-release-model.md](service-release-model.md); the short version:
 
-- **dev / qa** — a commit is promoted by force-pushing the `deploy/dev` or
-  `deploy/qa` branch ref of the **service repo**. ArgoCD Applications track
-  those refs, so the ref move is the deployment:
-  `shared-service-promote.yml`.
+- **dev / qa** — the branch, tag or commit you select is force-pushed to the
+  `deploy/dev` or `deploy/qa` branch ref of the **service repo**. ArgoCD
+  Applications track those refs, so the ref move is the deployment:
+  `shared-service-promote.yml`. A real promote to `qa` runs against the GitHub
+  `qa` Environment: with Required reviewers configured, a human approves in the
+  Actions UI before the ref moves — **no PR involved**.
 - **prod** — a release tag `vX.Y.Z` is pinned in the GitOps registry
   (`argocd/services-prod.yaml` in `infra-kubernetes`) through a
   `chore(services): …` pull request: `shared-adopt-prod.yml`. A human approves
@@ -168,6 +170,10 @@ on:
       environment:
         type: choice
         options: [dev, qa]
+      ref:
+        description: Branch or tag to deploy
+        type: string
+        default: main
       service:
         required: true
         type: string
@@ -177,9 +183,17 @@ jobs:
     uses: sca-templates/CI-CD-Templates/.github/workflows/shared-service-promote.yml@main
     with:
       environment: ${{ inputs.environment }}
+      ref: ${{ inputs.ref }}
       service: ${{ inputs.service }}
     secrets: inherit
 ```
+
+Run the workflow from anywhere and it pushes the head of the selected `ref` to
+`deploy/<environment>`. Resolution order: `ref` → `commit` → the triggering
+commit. To require an approval step for QA, configure **Required reviewers** on
+the repo's `qa` Environment (Settings → Environments) — the run then waits for a
+human approve in the Actions UI before moving `deploy/qa`. Details and plan
+limitations: [workflows.md](workflows.md#service-promote-devqa-refs).
 
 For prod the reconciler (or a human) calls `shared-adopt-prod.yml` with the
 release tag and `shared-enforce-latest.yml` to keep `latest` truthful. See
