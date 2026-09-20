@@ -31,8 +31,6 @@ on:
 
 permissions:
   contents: read
-  issues: write
-  pull-requests: write
 
 concurrency:
   group: stale-notify-${{ github.repository }}
@@ -41,6 +39,10 @@ concurrency:
 jobs:
   stale:
     name: Stale notify
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: write
     runs-on: ubuntu-latest
     steps:
       - name: Notify stale issues and pull requests

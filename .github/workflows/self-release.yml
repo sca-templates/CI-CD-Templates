@@ -7,7 +7,6 @@ on:
 
 permissions:
   contents: read
-  pull-requests: write
 
 concurrency:
   group: self-release-${{ github.ref }}
@@ -16,6 +15,9 @@ concurrency:
 jobs:
   release:
     name: Release
+    permissions:
+      contents: read
+      pull-requests: write
     uses: ./.github/workflows/shared-release-flow.yml
     with:
       release-type: "simple"
