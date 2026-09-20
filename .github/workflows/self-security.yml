@@ -19,9 +19,6 @@ concurrency:
 jobs:
   security:
     name: Security
-    permissions:
-      contents: read
-      security-events: write
     uses: ./.github/workflows/shared-security-scan.yml
     with:
       gitleaks: true
@@ -31,10 +28,6 @@ jobs:
 
   codeql:
     name: Analyze (GitHub Actions)
-    permissions:
-      actions: read
-      contents: read
-      security-events: write
     uses: ./.github/workflows/shared-codeql.yml
     with:
       languages: '["actions"]'
@@ -42,11 +35,6 @@ jobs:
   scorecard:
     name: Scorecards
     if: github.event_name == 'push' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
-    permissions:
-      actions: read
-      contents: read
-      id-token: write
-      security-events: write
     uses: ./.github/workflows/shared-scorecard.yml
     with:
       publish-results: true

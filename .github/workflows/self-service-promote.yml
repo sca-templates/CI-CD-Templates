@@ -16,7 +16,6 @@ on:
 
 permissions:
   contents: read
-  packages: write
 
 concurrency:
   group: self-service-promote-${{ github.ref }}
