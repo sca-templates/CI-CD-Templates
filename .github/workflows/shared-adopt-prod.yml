@@ -220,14 +220,18 @@ jobs:
             PR_URL="$(gh pr create --repo "$gitops_repo" --base "$base_branch" --head "$BRANCH" \
               --title "$COMMIT_MSG" --body "$BODY")"
             echo "Opened ${PR_URL}"
-            echo "updated=true" >> "$GITHUB_OUTPUT"
-            echo "commit-sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
-            echo "pr-url=$PR_URL" >> "$GITHUB_OUTPUT"
+            {
+              echo "updated=true"
+              echo "commit-sha=$(git rev-parse HEAD)"
+              echo "pr-url=$PR_URL"
+            } >> "$GITHUB_OUTPUT"
           else
             git add -- "$registry_path"
             git commit -q -m "$COMMIT_MSG"
             git -c "http.extraHeader=Authorization: Bearer ${bot_token}" push -q origin "HEAD:${base_branch}"
             echo "Pinned ${service}@${version} -> ${gitops_repo}@${base_branch} (${registry_path})"
-            echo "updated=true" >> "$GITHUB_OUTPUT"
-            echo "commit-sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+            {
+              echo "updated=true"
+              echo "commit-sha=$(git rev-parse HEAD)"
+            } >> "$GITHUB_OUTPUT"
           fi
