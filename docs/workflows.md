@@ -200,7 +200,9 @@ jobs:
       environment: ${{ inputs.environment }}
       revision: ${{ inputs.branch }}
       service: ${{ inputs.service }}
-    secrets: inherit
+    secrets:
+      ARGOCD_SERVER: ${{ secrets.ARGOCD_SERVER }}
+      ARGOCD_TOKEN: ${{ secrets.ARGOCD_TOKEN }}
 ```
 
 The workflow resolves the revision to its commit (branch head, else annotated

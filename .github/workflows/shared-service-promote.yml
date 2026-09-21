@@ -106,10 +106,12 @@ jobs:
       - name: Report dry-run
         if: ${{ inputs.dry-run == 'true' }}
         shell: bash
+        env:
+          REVISION: ${{ inputs.revision }}
+          COMMIT: ${{ steps.resolve.outputs.commit }}
         run: |
           set -euo pipefail
-          REV="${{ inputs.revision }}"
-          echo "::warning::dry-run — would sync ${APP} to ${REV} (${{ steps.resolve.outputs.commit }})"
+          echo "::warning::dry-run — would sync ${APP} to ${REVISION} (${COMMIT})"
 
       - name: Sync ArgoCD app
         if: ${{ inputs.dry-run != 'true' }}
