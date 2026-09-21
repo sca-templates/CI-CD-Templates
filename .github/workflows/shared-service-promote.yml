@@ -49,6 +49,10 @@ on:
         description: "Report the revision and app without syncing"
         type: boolean
         default: false
+      prune:
+        description: "Pass --prune to the app sync; qa defaults to false per ADR-003"
+        type: boolean
+        default: ${{ inputs.environment != 'qa' }}
     secrets:
       ARGOCD_SERVER:
         description: "ArgoCD API server URL (injected from the job's dev/qa environment)"
@@ -115,7 +119,7 @@ jobs:
           token: ${{ secrets.ARGOCD_TOKEN }}
           app: ${{ env.APP }}
           revision: ${{ steps.resolve.outputs.commit }}
-          prune: 'true'
+          prune: ${{ inputs.prune }}
           timeout: '300'
 
   publish:

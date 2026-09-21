@@ -205,8 +205,10 @@ jobs:
 
 The workflow resolves the revision to its commit (branch head, else annotated
 or lightweight tag via `git ls-remote`), logs it, and runs the
-`argocd-app-sync` action (`argocd app sync <app> --revision <commit> --prune`).
+`argocd-app-sync` action (`argocd app sync <app> --revision <commit> [--prune]`).
 The app defaults to `<service>-<environment>`; pass `app` to override. The
+`prune` input defaults to `true`, except for `qa` where it defaults to `false`
+(ADR-003: qa is synced without pruning). The
 sync reads `ARGOCD_SERVER` / `ARGOCD_TOKEN` secrets: store them at repository
 level and pass them explicitly, or scope them to the `dev`/`qa` GitHub
 Environments and use `secrets: inherit` (the job targets that environment, so
