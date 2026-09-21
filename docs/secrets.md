@@ -9,18 +9,19 @@ per plane (see [service-release-model.md](service-release-model.md)):
 | GitHub App | Plane | Used by |
 |---|---|---|
 | `sca-bot-release` | release (release PRs, signed tags, GPG) | `shared-release-flow.yml` |
-| `sca-deploy-bot` | deploy (deploy refs, prod pins, latest marker) | `shared-service-promote.yml`, `shared-adopt-prod.yml`, `shared-enforce-latest.yml` |
+| `sca-deploy-bot` | deploy (prod pins, latest marker) | `shared-adopt-prod.yml`, `shared-enforce-latest.yml` |
 
 ## Installations
 
 - **`sca-bot-release`** must be installed on every consumer repo that calls
   `shared-release-flow.yml`.
-- **`sca-deploy-bot`** must be installed on every service repo that promotes
-  `deploy/*` refs (`contents: write`), **and** on `sca-templates/infra-kubernetes`
+- **`sca-deploy-bot`** must be installed on `sca-templates/infra-kubernetes`
   (`contents: write`, `pull-requests: write` for the `chore(services)` PRs).
 
-Installation is org-wide ("All repositories") or per-repository. `sca-deploy-bot`
-never needs cluster access — it only moves git refs and opens/merges PRs.
+Dev/qa deployment does **not** use a GitHub App: it is an ArgoCD Application
+sync with a scoped ArgoCD API token, so service repos need no bot installation
+for `shared-service-promote.yml`. `sca-deploy-bot` never needs cluster access —
+it only pins versions and opens/merges PRs.
 
 ## Secrets
 
@@ -37,7 +38,27 @@ each value at rest (libsodium sealed box) and injects it only as
 | `APP_PRIVATE_KEY` | yes | Release-bot App private key (PEM; newlines allowed, base64 single-line accepted) |
 | `RELEASE_GPG_PRIVATE_KEY` | no | Release-bot GPG key armor; when set, release tags are signed and re-pushed |
 
-### Deploy plane (`sca-deploy-bot`)
+### Deploy plane — ArgoCD sync (`shared-service-promote.yml`)
+
+Dev/qa deployment syncs the ArgoCD Application through the ArgoCD API. Every
+consumer that promotes stores `ARGOCD_SERVER` / `ARGOCD_TOKEN` as
+**repository or organization** secrets and passes them explicitly (recommended,
+least-setup), or scopes them to the `dev`/`qa` GitHub Environments and calls
+with `secrets: inherit` — the reusable `promote` job declares the environment,
+so environment secrets are resolved there.
+
+| Secret | Required | Purpose |
+| --- | --- | --- |
+| `ARGOCD_SERVER` | yes | ArgoCD API server URL (e.g. `https://argocd.example.com`) |
+| `ARGOCD_TOKEN` | yes | ArgoCD API token for a **scoped role** (`sync`/`get` on the service's `<service>-dev` and `<service>-qa` Applications only) |
+
+The token is created in ArgoCD (Settings → Users/Projects → Roles → New token),
+restricted with RBAC so it cannot touch other projects or environments. No
+kubeconfig or cluster credential is ever stored in CI.
+
+### Deploy plane — bot (`sca-deploy-bot`)
+
+Used by the prod pin/latest reconcile flows.
 
 | Secret | Required | Purpose |
 | --- | --- | --- |
@@ -66,18 +87,18 @@ Configure these at the **organization level** (variables for the two
 `SONAR_*` non-secret values, secrets for `SONAR_TOKEN` and `NVD_API_KEY`) so
 every repo inherits them via `secrets: inherit`.
 
-The deploy secrets are named with the `*_DEPLOY` suffix (recommended) so they
+The deploy bot secrets are named with the `*_DEPLOY` suffix (recommended) so they
 **do not collide** with the release-bot `APP_ID`/`APP_PRIVATE_KEY` on repos that
-run both planes. The shared deploy workflows declare their inputs as
+run both planes. The prod workflows declare their inputs as
 `APP_ID`/`APP_PRIVATE_KEY`; map them at the call site:
 
 ```yaml
 jobs:
-  promote:
-    uses: sca-templates/CI-CD-Templates/.github/workflows/shared-service-promote.yml@main
+  adopt:
+    uses: sca-templates/CI-CD-Templates/.github/workflows/shared-adopt-prod.yml@main
     with:
-      environment: dev
       service: sca-api
+      release-tag: v1.2.3
     secrets:
       APP_ID: ${{ secrets.DEPLOY_APP_ID }}
       APP_PRIVATE_KEY: ${{ secrets.DEPLOY_APP_PRIVATE_KEY }}
@@ -105,8 +126,9 @@ Inside each shared workflow, the `mint-app-token` composite action
 (`.github/actions/mint-app-token`) exchanges `APP_ID` + `APP_PRIVATE_KEY` for a
 short-lived installation token scoped to the target repositories:
 
-- `shared-service-promote.yml` — force-pushes `deploy/<env>` refs in the
-  service repo.
+- `shared-service-promote.yml` — syncs the dev/qa ArgoCD Application to the
+  selected revision via the ArgoCD API (`ARGOCD_SERVER` / `ARGOCD_TOKEN`); no
+  GitHub App involved.
 - `shared-adopt-prod.yml` — verifies the release tag, clones `infra-kubernetes`,
   pins the version, and commits directly or opens `adopt/<service>-<tag>` PRs.
 - `shared-enforce-latest.yml` — reads the prod pin, harmonizes the release list

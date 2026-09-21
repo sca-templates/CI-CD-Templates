@@ -9,7 +9,7 @@ Centralized CI/CD templates for the `sca-templates` organization.
 - [Secrets](secrets.md) — Release and deploy automation secrets for consumers
 - [Automations](automations.md) — Labeling, stale, and release automations
 - [Usage](usage.md) — How to consume these templates from consumer repos
-- [Service release model](service-release-model.md) — Deploy contract: `deploy/*` refs, prod pins, `latest` marker, reconciliation
+- [Service release model](service-release-model.md) — Deploy contract: ArgoCD dev/qa syncs, prod pins, `latest` marker, reconciliation
 
 ## Quick start
 

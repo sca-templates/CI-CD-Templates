@@ -12,32 +12,38 @@ release-please creates a release per merged bump; without intervention `latest`
 would drift to whichever bumped last, so the deploy plane corrects it after
 every prod change.
 
-The deploy model is trunk-based: there is **no release PR** for deployments.
-`main` is always releasable; environments advance by moving refs and pins.
+The deploy model is trunk-based: service repos keep **only `main`** and there
+is **no release PR** for deployments. `main` is always releasable; environments
+advance by syncing the ArgoCD Application and by pins.
 
 ## The contract
 
 | Aspect | Mechanism |
 |---|---|
-| dev | selected branch/tag/commit, force-pushed by the deploy bot to `deploy/dev` in the service repo (no approval) |
-| qa | selected branch/tag/commit, force-pushed by the deploy bot to `deploy/qa`; a real promote runs against the `qa` GitHub Environment and waits for a **human approval** (Required reviewers) before the ref moves — no PR involved |
+| branches | only `main` exists in the service repos — no `deploy/dev`, `deploy/qa` or temporary branches |
+| dev | `shared-service-promote.yml` syncs the service's `dev` ArgoCD Application to the selected branch/tag/commit via the ArgoCD API (no approval) |
+| qa | same workflow, `qa` Application; a real promote runs against the `qa` GitHub Environment and waits for a **human approval** (Required reviewers) before the sync — no PR involved |
 | prod | immutable, signed `vX.Y.Z` tag (from `shared-release-flow.yml`) pinned in `argocd/services-prod.yaml` of `sca-templates/infra-kubernetes` |
-| prod apply | PR `chore(services): …` **or** direct commit; human approves/merges; ArgoCD syncs `prod` in the manual sync window (ADR-003) |
+| prod apply | PR `chore(services): …` (the only PR in the model); human approves/merges; ArgoCD syncs `prod` in the manual sync window (ADR-003) |
 | container images | always tagged `sha-<commit>`, never `latest` |
 | GitHub `latest` | corrected to the version running in `prod` |
 
-ArgoCD Applications track the `deploy/dev` and `deploy/qa` refs directly. A
-detailed doctree lives in [sca-docs](https://github.com/sca-templates/sca-docs).
+The dev and qa ArgoCD Applications point at `main` and are synced on demand;
+the prod Application points at the pinned tag. A detailed doctree lives in
+[sca-docs](https://github.com/sca-templates/sca-docs).
 
 ## Two bots, two planes
 
 | Bot | Plane | Repos it touches | Cluster access |
 |---|---|---|---|
 | `sca-bot-release` | release: release PRs, signed tags, GPG | every consumer repo | no |
-| `sca-deploy-bot` | deploy: `deploy/*` refs, `chore(services)` pins, `latest` marker | service repos + `infra-kubernetes` | no |
+| `sca-deploy-bot` | deploy: `chore(services)` prod pins, `latest` marker | service repos + `infra-kubernetes` | no |
 
 Secrets and scopes: [secrets.md](secrets.md). Neither bot ever touches the
-cluster; ArgoCD is the only component with access.
+cluster. Dev/qa deployments are executed by GitHub Actions **with a scoped
+ArgoCD API token**: the runner calls the ArgoCD server directly, so no
+cluster credentials ever reach the pipeline (`ARGOCD_SERVER` + `ARGOCD_TOKEN`,
+scoped to `sync`/`get` on the service's dev/qa Applications).
 
 ## Orchestration
 
@@ -59,7 +65,7 @@ re-mark `latest` automatically; for now the marker moves only on the manual run.
 
 | Workflow | Role |
 |---|---|
-| [`shared-service-promote.yml`](workflows.md) | moves `deploy/<env>` to a commit — the dev/qa promotion |
+| [`shared-service-promote.yml`](workflows.md) | syncs the dev/qa ArgoCD Application to a selected revision — the dev/qa promotion |
 | [`shared-adopt-prod.yml`](workflows.md) | pins the release tag as the prod version in the GitOps registry |
 | [`shared-enforce-latest.yml`](workflows.md) | corrects GitHub `latest` to the deployed version (with `harmonize-releases`) |
 | [`shared-release-flow.yml`](workflows.md) | release-please + signed tags; optional `auto-merge-release-pr` |
@@ -69,27 +75,28 @@ Consumer wiring: [usage.md](usage.md).
 ## Dev/QA promotion
 
 Dev and QA share one environment each: whoever promotes last decides what
-everyone tests there. `shared-service-promote.yml` takes a `ref` (branch or tag,
-resolved to its head commit) — or an explicit `commit` — and force-pushes it to
-`deploy/dev` or `deploy/qa`:
+everyone tests there. `shared-service-promote.yml` takes a `revision` (branch
+or tag, resolved to its head commit) — or an explicit commit — and syncs the
+service's `dev` or `qa` ArgoCD Application to that commit:
 
-- **dev**: promotes immediately.
+- **dev**: the sync runs immediately (no approval).
 - **qa**: a real promote runs against the repo's `qa` GitHub Environment. If the
   repo configures **Required reviewers** on it, the run pauses ("Waiting for
   approval") until one reviewer approves in the Actions UI — the approval is a
   human gate, not a PR. Without reviewers configured the old no-approval
-  behavior is kept. `dry-run` never waits.
+  behavior is kept.
 
-Dev/QA have no release PR: they take any commit, not only `vX.Y.Z` tags.
+Dev/QA have no release PR: they take any commit, not only `vX.Y.Z` tags. The
+Application name defaults to `<service>-<environment>`; pass `app` explicitly
+when the infra registry names the Application differently.
 
-## Ruleset
+## No deploy refs
 
-[`service-deploy-refs.json`](../.github/rulesets/service-deploy-refs.json)
-protects `refs/heads/deploy/**` from deletion and non-fast-forward while
-bypassing those rules for the `sca-deploy-bot` app (`bypass_mode: always`,
-`actor_type: Integration`). It must have **higher precedence** than
-`allowed-branches-only.json` (create it after) so the bot's force-push is
-allowed. Details: [rulesets.md](rulesets.md).
+There are no `deploy/*` refs and no ruleset protecting them: dev and qa are
+Application syncs, not branch moves. That ruleset and the
+`push-deploy-ref` action have been removed from this repository. Anything still
+referencing `deploy/dev` or `deploy/qa` is stale and should be treated as a
+migration artifact.
 
 ## Registry schema
 
@@ -114,10 +121,12 @@ the list, and reuses an open `adopt/<service>-<tag>` PR when one exists.
    dev/qa instead of `shared-gitops-promote.yml`.
 2. Images keep `sha-<commit>` tags; the promote workflow can build them with
    `run-publish: true` or your existing tag-triggered publish job.
-3. Add the `Service Deploy Refs` ruleset and set the `sca-deploy-bot` App ID in
-   `bypass_actors`; remove the old GitOps rules unless still needed.
-4. Configure the deploy-plane secrets ([secrets.md](secrets.md)).
-5. Point the reconciler in `infra-kubernetes` at
+3. Configure the deploy-plane secrets ([secrets.md](secrets.md)):
+   `ARGOCD_SERVER` and `ARGOCD_TOKEN` as repository/organization secrets, or
+   scoped to the `dev`/`qa` GitHub Environments (with `secrets: inherit`).
+4. Point the reconciler in `infra-kubernetes` at
    `shared-adopt-prod.yml` / `shared-enforce-latest.yml`, delete the
    `image.tag` schema usage, and drop `gitops-bump-image` references (the
    action is removed from this repo).
+5. Drop any `deploy/*` refs and rulesets; delete the branches if an old model
+   left them behind (only `main` should remain)

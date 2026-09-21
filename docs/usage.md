@@ -134,20 +134,20 @@ jobs:
 
 ## Deploying a service (deploy model)
 
-Deployments follow a trunk-based model with ArgoCD/GitOps — there is no release
-PR for deployments. The full contract is in
-[service-release-model.md](service-release-model.md); the short version:
+Deployments follow a trunk-based model with ArgoCD/GitOps — service repos keep
+**only `main`**, and there is no release PR for deployments. The full contract
+is in [service-release-model.md](service-release-model.md); the short version:
 
-- **dev / qa** — the branch, tag or commit you select is force-pushed to the
-  `deploy/dev` or `deploy/qa` branch ref of the **service repo**. ArgoCD
-  Applications track those refs, so the ref move is the deployment:
-  `shared-service-promote.yml`. A real promote to `qa` runs against the GitHub
-  `qa` Environment: with Required reviewers configured, a human approves in the
-  Actions UI before the ref moves — **no PR involved**.
+- **dev / qa** — the branch, tag or commit you select is synced to the service's
+  `dev` or `qa` ArgoCD Application through the ArgoCD API (no git refs, no
+  force-push): `shared-service-promote.yml`. A real promote to `qa` runs against
+  the GitHub `qa` Environment: with Required reviewers configured, a human
+  approves in the Actions UI before the sync — **no PR involved**.
 - **prod** — a release tag `vX.Y.Z` is pinned in the GitOps registry
   (`argocd/services-prod.yaml` in `infra-kubernetes`) through a
   `chore(services): …` pull request: `shared-adopt-prod.yml`. A human approves
-  and merges; ArgoCD syncs `prod` in the manual sync window (ADR-003).
+  and merges; ArgoCD syncs `prod` in the manual sync window (ADR-003). This PR
+  is the only one in the model.
 - **latest** — GitHub `latest` is a marker of reality: the exact version
   running in prod. A reconcile loop in `infra-kubernetes` reads the ArgoCD
   state and calls `shared-enforce-latest.yml` (or the optional fast-path on
@@ -158,7 +158,11 @@ Two org bot apps split the planes:
 | Bot | Plane | Used by |
 |---|---|---|
 | `sca-bot-release` | release (tags, release PRs, GPG) | `shared-release-flow.yml` |
-| `sca-deploy-bot` | deploy (deploy refs, prod pins, latest marker) | `shared-service-promote.yml`, `shared-adopt-prod.yml`, `shared-enforce-latest.yml` |
+| `sca-deploy-bot` | prod pins + latest marker | `shared-adopt-prod.yml`, `shared-enforce-latest.yml` |
+
+Dev/qa syncs run with a **scoped ArgoCD API token** (`ARGOCD_SERVER` +
+`ARGOCD_TOKEN`, RBAC limited to `sync`/`get` on the service's dev/qa apps);
+no cluster credentials ever reach the pipeline.
 
 ```yaml
 # .github/workflows/promote.yml in the service repo
@@ -170,7 +174,7 @@ on:
       environment:
         type: choice
         options: [dev, qa]
-      ref:
+      branch:
         description: Branch or tag to deploy
         type: string
         default: main
@@ -183,18 +187,28 @@ jobs:
     uses: sca-templates/CI-CD-Templates/.github/workflows/shared-service-promote.yml@main
     with:
       environment: ${{ inputs.environment }}
-      ref: ${{ inputs.ref }}
+      revision: ${{ inputs.branch }}
       service: ${{ inputs.service }}
-    secrets: inherit
+    secrets:
+      ARGOCD_SERVER: ${{ secrets.ARGOCD_SERVER }}
+      ARGOCD_TOKEN: ${{ secrets.ARGOCD_TOKEN }}
 ```
 
-Run the workflow from anywhere and it pushes the head of the selected `ref` to
-`deploy/<environment>`. Resolution order: `ref` → `commit` → the triggering
-commit. To require an approval step for QA, configure **Required reviewers** on
-the repo's `qa` Environment (Settings → Environments) — the run then waits for a
-human approve in the Actions UI before moving `deploy/qa`. Details and plan
-limitations: [workflows.md](workflows.md#service-promote-devqa-refs). A
-ready-to-copy wrapper lives at [docs/examples/promote.yml](examples/promote.yml).
+Run the workflow from anywhere and it syncs the selected `revision` onto the
+`<service>-<environment>` ArgoCD Application (name overridable with `app`).
+Resolution order: branch head, else tag (`git ls-remote`), and the resolved
+commit is what gets synced and logged. To require an approval step for QA,
+configure **Required reviewers** on the repo's `qa` Environment (Settings →
+Environments) — the run then waits for a human approve in the Actions UI before
+the sync. Details and plan limitations:
+[workflows.md](workflows.md#service-promote-argocd-sync). A ready-to-copy
+wrapper lives at [docs/examples/promote.yml](examples/promote.yml).
+
+`ARGOCD_SERVER` / `ARGOCD_TOKEN` live as **repository or organization
+secrets** (passed explicitly above). Alternatively, scope them to the `dev` /
+`qa` GitHub Environments and use `secrets: inherit` — the reusable `promote`
+job targets that environment, so GitHub resolves the environment secrets
+there.
 
 For prod the service repo ships a small `workflow_dispatch` wrapper
 ([docs/examples/deploy-prod.yml](examples/deploy-prod.yml)) with two actions:
@@ -243,4 +257,4 @@ jobs:
 
 Required secrets and where to configure them: see [secrets.md](secrets.md).
 
-The GitHub Apps must be installed on the repositories they act on: `sca-bot-release` on every repo that calls `shared-release-flow.yml`; `sca-deploy-bot` on the service repos **and** `infra-kubernetes` (deploy refs and prod pins). See [secrets.md](secrets.md).
+The GitHub Apps must be installed on the repositories they act on: `sca-bot-release` on every repo that calls `shared-release-flow.yml`; `sca-deploy-bot` on `infra-kubernetes` (prod pins and `latest`). Dev/qa syncs use the `ARGOCD_SERVER` / `ARGOCD_TOKEN` secrets instead of a GitHub App — no bot installation needed. See [secrets.md](secrets.md).

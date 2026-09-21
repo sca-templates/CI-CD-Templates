@@ -1,0 +1,74 @@
+---
+name: Sync ArgoCD App
+description: Sync an ArgoCD Application to a selected revision via the ArgoCD API server (scoped token), with no git refs involved.
+
+inputs:
+  server:
+    description: ArgoCD API server URL (e.g. https://argocd.example.com)
+    required: true
+  token:
+    description: ArgoCD API token for a scoped role (sync/get on this service's dev/qa apps)
+    required: true
+  app:
+    description: ArgoCD Application name to sync (e.g. <service>-dev)
+    required: true
+  revision:
+    description: Git revision (branch, tag or commit) to sync the app to; defaults to main
+    required: false
+    default: "main"
+  prune:
+    description: Pass --prune to the sync (delete resources no longer in git)
+    required: false
+    default: "true"
+  timeout:
+    description: Sync timeout in seconds
+    required: false
+    default: "300"
+  version:
+    description: ArgoCD CLI version to pin
+    required: false
+    default: "v3.5.3"
+
+runs:
+  using: composite
+  steps:
+    - name: Install pinned argocd CLI
+      shell: bash
+      env:
+        ARGOCD_VERSION: ${{ inputs.version }}
+      run: |
+        set -euo pipefail
+        curl -fsSL --retry 3 \
+          "https://github.com/argoproj/argo-cd/releases/download/${ARGOCD_VERSION}/argocd-linux-amd64" \
+          -o "${RUNNER_TOOL_CACHE}/argocd"
+        chmod +x "${RUNNER_TOOL_CACHE}/argocd"
+        "${RUNNER_TOOL_CACHE}/argocd" version --client --short
+
+    - name: Login
+      shell: bash
+      env:
+        ARGOCD_SERVER: ${{ inputs.server }}
+        ARGOCD_TOKEN: ${{ inputs.token }}
+      run: |
+        set -euo pipefail
+        ARGOCD_BIN="${RUNNER_TOOL_CACHE}/argocd"
+        "${ARGOCD_BIN}" login "${ARGOCD_SERVER}" \
+          --auth-token "${ARGOCD_TOKEN}" \
+          --insecure \
+          --grpc-web
+
+    - name: Sync app to revision
+      shell: bash
+      env:
+        APP: ${{ inputs.app }}
+        REVISION: ${{ inputs.revision }}
+        PRUNE: ${{ inputs.prune }}
+        TIMEOUT: ${{ inputs.timeout }}
+      run: |
+        set -euo pipefail
+        ARGOCD_BIN="${RUNNER_TOOL_CACHE}/argocd"
+        ARGS=(sync "${APP}" --revision "${REVISION}" --timeout "${TIMEOUT}" --grpc-web)
+        if [ "${PRUNE}" = "true" ]; then
+          ARGS+=(--prune)
+        fi
+        "${ARGOCD_BIN}" "${ARGS[@]}"

@@ -1,18 +1,25 @@
 # Per-service dev/qa promotion wrapper — copy to .github/workflows/promote.yml
 #
 # One executable workflow for both environments: `shared-service-promote.yml`
-# moves the deploy/dev or deploy/qa branch ref of THIS repo, which the ArgoCD
-# Applications for dev/qa track. A real promote to `qa` runs against the repo's
-# `qa` GitHub Environment: with "Required reviewers" configured on it, a human
-# approves in the Actions UI before the ref moves — no PR involved.
+# selects the branch to deploy and syncs the service's ArgoCD Application for
+# the target environment through the ArgoCD API — dev/qa imports go straight
+# to the matching app, with no PR and no deploy refs. A real promote to `qa`
+# runs against the repo's `qa` GitHub Environment: with "Required reviewers"
+# configured on it, a human approves in the Actions UI before the sync runs.
+# Only `main` exists in the repo; PRs appear only on the prod path
+# (docs/service-release-model.md).
 #
 # Requirements on the service repo:
-#   - secrets APP_ID / APP_PRIVATE_KEY (sca-deploy-bot app) — or map your
-#     DEPLOY_APP_* names explicitly below.
-#   - GitHub Environment named `qa` with Required reviewers (public repos on
-#     Free/Pro/Team, or Enterprise Cloud for private ones).
-#   - ruleset service-deploy-refs from CI-CD-Templates, with higher precedence
-#     than any allowed-branches-only ruleset (docs/rulesets.md).
+#   - secrets ARGOCD_SERVER / ARGOCD_TOKEN at repository or organization
+#     level (recommended, passed explicitly below). Alternative: scope them
+#     to the `dev` / `qa` GitHub Environments and use `secrets: inherit`
+#     instead — environment secrets are resolved by the reusable job that
+#     targets that environment.
+#   - GitHub Environment `dev` (no reviewers) and `qa` with Required
+#     reviewers (public repos on Free/Pro/Team, or Enterprise Cloud for
+#     private ones).
+#   - the Application name defaults to <service>-<environment>; pass `app`
+#     explicitly if the infra registry names it differently.
 #   - `packages: write` is required because the nested publish job requests it;
 #     grant it even though publishing is optional.
 
@@ -22,14 +29,22 @@ on:
   workflow_dispatch:
     inputs:
       environment:
-        description: "Target environment (dev promotes without approval; qa waits for one)"
+        description: "Target environment (dev or qa)"
         type: choice
         options: [dev, qa]
         required: true
-      ref:
-        description: "Branch or tag to deploy (defaults to the head of main)"
+      branch:
+        description: "Branch (or tag) to deploy; defaults to the head of main"
         type: string
         default: main
+      service:
+        description: "Service name (ApplicationSet element name)"
+        type: string
+        required: true
+      app:
+        description: "ArgoCD Application name; defaults to <service>-<environment>"
+        type: string
+        required: false
 
 permissions:
   contents: read
@@ -45,8 +60,9 @@ jobs:
     uses: sca-templates/CI-CD-Templates/.github/workflows/shared-service-promote.yml@main
     with:
       environment: ${{ inputs.environment }}
-      service: <service-name>
-      ref: ${{ inputs.ref }}
+      service: ${{ inputs.service }}
+      app: ${{ inputs.app }}
+      revision: ${{ inputs.branch }}
     secrets:
-      APP_ID: ${{ secrets.APP_ID }}
-      APP_PRIVATE_KEY: ${{ secrets.APP_PRIVATE_KEY }}
+      ARGOCD_SERVER: ${{ secrets.ARGOCD_SERVER }}
+      ARGOCD_TOKEN: ${{ secrets.ARGOCD_TOKEN }}

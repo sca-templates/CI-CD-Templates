@@ -5,21 +5,22 @@ on:
   workflow_call:
     inputs:
       environment:
-        description: "Target deploy ref to move (dev or qa)"
+        description: "Target environment (dev or qa); runs against the matching GitHub Environment"
         type: string
         required: true
       service:
-        description: "Service name (used for concurrency and messages)"
+        description: "Service name (also the ApplicationSet element name; used for concurrency and messages)"
         type: string
         required: true
-      ref:
-        description: "Git ref (branch or tag) to promote; takes precedence over commit and defaults to the triggering commit"
+      app:
+        description: "ArgoCD Application name to sync (defaults to <service>-<environment>)"
         type: string
+        required: false
         default: ""
-      commit:
-        description: "Commit SHA to promote; ignored when ref is set, defaults to the triggering commit"
+      revision:
+        description: "Branch, tag or commit to deploy; defaults to the head of main"
         type: string
-        default: ""
+        default: "main"
       run-publish:
         description: "Build and push a Docker image for the promoted commit"
         type: boolean
@@ -45,16 +46,20 @@ on:
         type: string
         default: "linux/amd64"
       dry-run:
-        description: "Report the ref move without pushing"
+        description: "Report the revision and app without syncing"
         type: boolean
         default: false
+      prune:
+        description: "Pass --prune to the app sync; qa defaults to false per ADR-003"
+        type: boolean
+        default: ${{ inputs.environment != 'qa' }}
     secrets:
-      APP_ID:
-        description: "Deploy-bot GitHub App ID (contents: write on the service repo)"
-        required: true
-      APP_PRIVATE_KEY:
-        description: "Deploy-bot GitHub App private key (PEM)"
-        required: true
+      ARGOCD_SERVER:
+        description: "ArgoCD API server URL (injected from the job's dev/qa environment)"
+        required: false
+      ARGOCD_TOKEN:
+        description: "ArgoCD API token for a scoped role (sync/get on this service's dev/qa apps)"
+        required: false
 
 permissions:
   contents: read
@@ -65,54 +70,64 @@ concurrency:
 
 jobs:
   promote:
-    name: Promote ${{ inputs.environment }} (direct)
-    if: ${{ !(inputs.environment == 'qa' && inputs.dry-run == 'false') }}
+    name: Promote ${{ inputs.environment }}
     runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    env:
+      APP: ${{ inputs.app || format('{0}-{1}', inputs.service, inputs.environment) }}
     outputs:
-      pushed-commit: ${{ steps.push.outputs.pushed-commit }}
-      updated: ${{ steps.push.outputs.updated }}
+      commit: ${{ steps.resolve.outputs.commit }}
     steps:
-      - name: Push deploy ref
-        id: push
-        uses: sca-templates/CI-CD-Templates/.github/actions/push-deploy-ref@d44e3cc4c907d9cf90ab1375640582d655fd3b70
-        with:
-          environment: ${{ inputs.environment }}
-          service: ${{ inputs.service }}
-          ref: ${{ inputs.ref }}
-          commit: ${{ inputs.commit }}
-          default-commit: ${{ github.sha }}
-          dry-run: ${{ inputs.dry-run }}
-          app-id: ${{ secrets.APP_ID }}
-          app-private-key: ${{ secrets.APP_PRIVATE_KEY }}
-          github-repository: ${{ github.repository }}
+      - name: Resolve revision to commit
+        id: resolve
+        shell: bash
+        env:
+          REPO: ${{ github.repository }}
+          REVISION: ${{ inputs.revision }}
+        run: |
+          set -euo pipefail
+          REV="${REVISION:-main}"
+          URL="https://github.com/${REPO}.git"
+          BRANCH_SHA="$(git ls-remote "${URL}" "refs/heads/${REV}" | awk '{print $1}' | head -n1 || true)"
+          if [ -n "${BRANCH_SHA}" ]; then
+            echo "commit=${BRANCH_SHA}" >> "$GITHUB_OUTPUT"
+            echo "Resolved ${REV} -> ${BRANCH_SHA}"
+            exit 0
+          fi
+          TAG_SHA="$(git ls-remote "${URL}" "refs/tags/${REV}" "refs/tags/${REV}^{}" | awk '{print $1}' | head -n1 || true)"
+          if [ -n "${TAG_SHA}" ]; then
+            echo "commit=${TAG_SHA}" >> "$GITHUB_OUTPUT"
+            echo "Resolved ${REV} -> ${TAG_SHA}"
+            exit 0
+          fi
+          echo "::error::revision '${REV}' does not resolve to a branch or tag in ${REPO}"
+          exit 1
 
-  promote-qa:
-    name: Promote qa (requires approval)
-    if: ${{ inputs.environment == 'qa' && inputs.dry-run == 'false' }}
-    runs-on: ubuntu-latest
-    environment: qa
-    outputs:
-      pushed-commit: ${{ steps.push.outputs.pushed-commit }}
-      updated: ${{ steps.push.outputs.updated }}
-    steps:
-      - name: Push deploy ref
-        id: push
-        uses: sca-templates/CI-CD-Templates/.github/actions/push-deploy-ref@d44e3cc4c907d9cf90ab1375640582d655fd3b70
+      - name: Report dry-run
+        if: ${{ inputs.dry-run == 'true' }}
+        shell: bash
+        env:
+          REVISION: ${{ inputs.revision }}
+          COMMIT: ${{ steps.resolve.outputs.commit }}
+        run: |
+          set -euo pipefail
+          echo "::warning::dry-run — would sync ${APP} to ${REVISION} (${COMMIT})"
+
+      - name: Sync ArgoCD app
+        if: ${{ inputs.dry-run != 'true' }}
+        uses: ./.github/actions/argocd-app-sync
         with:
-          environment: ${{ inputs.environment }}
-          service: ${{ inputs.service }}
-          ref: ${{ inputs.ref }}
-          commit: ${{ inputs.commit }}
-          default-commit: ${{ github.sha }}
-          dry-run: ${{ inputs.dry-run }}
-          app-id: ${{ secrets.APP_ID }}
-          app-private-key: ${{ secrets.APP_PRIVATE_KEY }}
-          github-repository: ${{ github.repository }}
+          server: ${{ secrets.ARGOCD_SERVER }}
+          token: ${{ secrets.ARGOCD_TOKEN }}
+          app: ${{ env.APP }}
+          revision: ${{ steps.resolve.outputs.commit }}
+          prune: ${{ inputs.prune }}
+          timeout: '300'
 
   publish:
     name: Publish Docker image
-    needs: [promote, promote-qa]
-    if: ${{ inputs.run-publish && !inputs.dry-run }}
+    needs: promote
+    if: ${{ inputs.run-publish == 'true' && inputs.dry-run != 'true' }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -131,7 +146,7 @@ jobs:
 
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ needs.promote.outputs.pushed-commit || needs['promote-qa'].outputs.pushed-commit }}
+          ref: ${{ needs.promote.outputs.commit }}
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e # v4.3.0
@@ -150,6 +165,6 @@ jobs:
           file: ${{ inputs.dockerfile }}
           platforms: ${{ inputs.platforms }}
           push: true
-          tags: ${{ inputs.image }}:${{ inputs.publish-tag || format('sha-{0}', needs.promote.outputs.pushed-commit || needs['promote-qa'].outputs.pushed-commit) }}
+          tags: ${{ inputs.image }}:${{ inputs.publish-tag || format('sha-{0}', needs.promote.outputs.commit) }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
