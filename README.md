@@ -29,7 +29,7 @@ Centralized, reusable CI/CD templates for the [sca-templates](https://github.com
 | QA Lock Check | `shared-qa-lock-check.yml` | Block merges while release PR open |
 | CodeQL | `shared-codeql.yml` | CodeQL static analysis (GitHub Actions) |
 | Scorecard | `shared-scorecard.yml` | OpenSSF Scorecard supply-chain security |
-| Service Promote | `shared-service-promote.yml` | Move `deploy/dev` or `deploy/qa` refs (trunk-based GitOps promotion) |
+| Service Promote | `shared-service-promote.yml` | Sync the `dev`/`qa` ArgoCD Application to a selected revision (ArgoCD API, no git refs) |
 | Adopt Prod | `shared-adopt-prod.yml` | Pin the running release tag as the prod version in the GitOps registry |
 | Enforce Latest | `shared-enforce-latest.yml` | Correct GitHub `latest` to the version actually running in prod |
 | Auto Label | `shared-auto-label.yml` | Assign labels to PRs from type, changed files, and stack (idempotent, add-only) |
@@ -51,7 +51,6 @@ Centralized, reusable CI/CD templates for the [sca-templates](https://github.com
 |---|---|---|
 | Main Protected | `main-protected.json` | Require review, squash merge, status checks |
 | Branch Naming | `allowed-branches-only.json` | Enforce branch naming conventions |
-| Service Deploy Refs | `service-deploy-refs.json` | Protect `deploy/*` refs; bypassed by `sca-deploy-bot` for force-pushes |
 
 ## Quick start
 
@@ -79,6 +78,7 @@ on:
   workflow_dispatch:
     inputs:
       environment: { type: choice, options: [dev, qa] }
+      branch: { type: string, default: main }
       service: { required: true }
 
 jobs:
@@ -86,15 +86,18 @@ jobs:
     uses: sca-templates/CI-CD-Templates/.github/workflows/shared-service-promote.yml@main
     with:
       environment: ${{ inputs.environment }}
+      revision: ${{ inputs.branch }}
       service: ${{ inputs.service }}
-    secrets:
-      APP_ID: ${{ secrets.DEPLOY_APP_ID }}
-      APP_PRIVATE_KEY: ${{ secrets.DEPLOY_APP_PRIVATE_KEY }}
+    secrets: inherit
 ```
+
+The promote workflow resolves the selected revision to its commit and syncs the
+service's `dev`/`qa` ArgoCD Application through the ArgoCD API
+(`ARGOCD_SERVER` / `ARGOCD_TOKEN` secrets, scoped to the service's apps).
 
 See [docs/usage.md](docs/usage.md) for full reference and
 [docs/service-release-model.md](docs/service-release-model.md) for the
-deploy model behind `deploy/*` refs, prod pins, and the `latest` marker.
+deploy model behind ArgoCD syncs, prod pins, and the `latest` marker.
 
 ## Documentation
 

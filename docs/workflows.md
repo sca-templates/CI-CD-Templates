@@ -163,16 +163,17 @@ workflow only needs `contents: read`; no looser permissions are required.
 > executed with the release bot token, so the write scope only widens the
 > caller's `GITHUB_TOKEN` for PR operations.
 
-### Service Promote (dev/qa refs)
+### Service Promote (ArgoCD sync)
 
-Moves the `deploy/dev` or `deploy/qa` branch ref of the service repo to a target
-commit (`--force` by the deploy bot). ArgoCD Applications point at these refs,
-so the ref move is the promotion. Implements the trunk-based model documented in
+Syncs the service's `dev` or `qa` ArgoCD Application to a selected revision via
+the ArgoCD API — no git refs, no force-push, no PR. Applications track `main`
+(see the infra registry) and the sync points the environment at the commit
+whose head you select. Implements the trunk-based model documented in
 [service-release-model.md](service-release-model.md).
 
 Select the branch, tag or commit you want everyone to test in dev/qa, run the
-workflow, and its head becomes that environment. The `ref`/`commit` inputs are
-plain strings, so consumers usually expose a `ref` input on
+workflow, and that revision becomes the environment. The `revision` input is a
+plain string, so consumers usually expose a `branch` input on
 `workflow_dispatch`:
 
 ```yaml
@@ -185,7 +186,7 @@ on:
       environment:
         type: choice
         options: [dev, qa]
-      ref:
+      branch:
         description: Branch or tag to deploy
         type: string
         default: main
@@ -197,31 +198,43 @@ jobs:
     uses: sca-templates/CI-CD-Templates/.github/workflows/shared-service-promote.yml@main
     with:
       environment: ${{ inputs.environment }}
-      ref: ${{ inputs.ref }}
+      revision: ${{ inputs.branch }}
       service: ${{ inputs.service }}
     secrets: inherit
 ```
 
-Resolution order: `ref` → `commit` → the triggering commit. `commit` is kept for
-automation that passes an explicit SHA.
+The workflow resolves the revision to its commit (branch head, else annotated
+or lightweight tag via `git ls-remote`), logs it, and runs the
+`argocd-app-sync` action (`argocd app sync <app> --revision <commit> --prune`).
+The app defaults to `<service>-<environment>`; pass `app` to override. The
+sync reads `ARGOCD_SERVER` / `ARGOCD_TOKEN` secrets: store them at repository
+level and pass them explicitly, or scope them to the `dev`/`qa` GitHub
+Environments and use `secrets: inherit` (the job targets that environment, so
+the environment secrets are resolved there).
 
 `run-publish: true` additionally builds and pushes the `sha-<commit>` image to
 GHCR (exact `stack-nest.yml` publish pattern, `packages: write` on the job).
-`dry-run: true` reports the ref move without pushing.
+`dry-run: true` reports the revision/app without syncing and skips publishing.
 
 > **Callers must grant `packages: write` at workflow level.** The nested
 > `publish` job requests it, and GitHub validates reusable-workflow permissions
 > **statically** against the caller's `permissions:` block — a caller that only
 > grants `contents: read` fails before the workflow starts, even in
 > `dry-run: true`.
+>
+> **Tokens are scoped ArgoCD API users, not cluster credentials.** Create a
+> restricted role in ArgoCD (RBAC: `sync`/`get` on `<service>-dev` and
+> `<service>-qa`) and issue a token for it; the Action only ever speaks to the
+> ArgoCD server, so no kubeconfig is needed in CI. See
+> [service-release-model.md](service-release-model.md).
 
 #### QA approval (not a PR)
 
 A real (non-`dry-run`) promote to `qa` runs against the GitHub `qa`
 Environment. Configure **Required reviewers** on it (Settings → Environments →
-`qa`, up to 6 people/teams): the run pauses at the `promote-qa` job with
-"Waiting for approval", and the deploy ref only moves after one reviewer
-approves in the Actions UI. Dev promotes and dry-runs never wait.
+`qa`, up to 6 people/teams): the run pauses at the `promote` job with
+"Waiting for approval", and the sync only runs after one reviewer approves in
+the Actions UI. Dev promotes never wait.
 
 - The environment and its reviewers are **per consumer repo**; the template only
   references `qa` by name. Repos that leave the environment without reviewers
@@ -230,6 +243,8 @@ approves in the Actions UI. Dev promotes and dry-runs never wait.
   plans; **private** repos need an Enterprise Cloud plan.
 - A QA promote holds the `service+qa` concurrency lock while waiting for
   approval, so subsequent QA promotes queue instead of racing.
+- Note: because the approval gates the whole `promote` job, a `dry-run` to `qa`
+  also requires approval (use `dev` for free dry-runs).
 
 ### Adopt Prod (version pin)
 
