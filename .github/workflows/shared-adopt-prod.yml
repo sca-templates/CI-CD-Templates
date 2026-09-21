@@ -25,7 +25,7 @@ on:
         type: string
         default: "argocd/services-prod.yaml"
       yq-expression:
-        description: "yq expression reading the pinned version; defaults to a service lookup"
+        description: "yq expression reading the pinned version; defaults to an ApplicationSet element lookup"
         type: string
         default: ""
       set-expression:
@@ -144,7 +144,7 @@ jobs:
 
           READ_EXPR="$yq_expression"
           if [ -z "$READ_EXPR" ]; then
-            READ_EXPR=".${service}.version // .applications.${service}.version // .services.${service}.version"
+            READ_EXPR=".spec.generators[0].list.elements[] | select(.name == \"${service}\") | .version"
           fi
 
           GITOPS_DIR="$RUNNER_TEMP/adopt-prod"
@@ -165,6 +165,14 @@ jobs:
           fi
           echo "current-version=$CURRENT" >> "$GITHUB_OUTPUT"
 
+          if [[ "$READ_EXPR" == ".spec.generators"* ]]; then
+            ELEMENT="$("$yq" eval ".spec.generators[0].list.elements[] | select(.name == \"${service}\")" "$registry_path" 2>/dev/null || true)"
+            if [ -z "$ELEMENT" ]; then
+              echo "::error::service '$service' is not registered in $registry_path; add its element to the ApplicationSet list before adopting"
+              exit 1
+            fi
+          fi
+
           if [ "$CURRENT" = "$version" ]; then
             echo "No change — $service already pinned to $version in ${gitops_repo}"
             echo "updated=false" >> "$GITHUB_OUTPUT"
@@ -173,14 +181,7 @@ jobs:
 
           SET_EXPR="$set_expression"
           if [ -z "$SET_EXPR" ]; then
-            for candidate in ".${service}.version" ".applications.${service}.version" ".services.${service}.version"; do
-              VALUE="$("$yq" eval "$candidate" "$registry_path" 2>/dev/null || true)"
-              if [ -n "$VALUE" ] && [ "$VALUE" != "null" ]; then
-                SET_EXPR="$candidate"
-                break
-              fi
-            done
-            [ -n "$SET_EXPR" ] || SET_EXPR=".${service}.version"
+            SET_EXPR=".spec.generators[0].list.elements[] | select(.name == \"${service}\") | .version"
           fi
 
           "$yq" eval -i "$SET_EXPR = \"$version\"" "$registry_path"
