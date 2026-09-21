@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.4.0](https://github.com/sca-templates/CI-CD-Templates/compare/v2.3.0...v2.4.0) (2026-09-21)
+
+
+### Features
+
+* **templates:** sync dev/qa apps via ArgoCD instead of deploy refs ([#34](https://github.com/sca-templates/CI-CD-Templates/issues/34)) ([e14f980](https://github.com/sca-templates/CI-CD-Templates/commit/e14f9801c8159cc6d38a99acb296d3f064f79683))
+
 ## [2.3.0](https://github.com/sca-templates/CI-CD-Templates/compare/v2.2.0...v2.3.0) (2026-09-21)
 
 
