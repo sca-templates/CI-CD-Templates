@@ -238,6 +238,12 @@ Pins a release tag as the version running in prod inside the GitOps registry
 `adopt/<service>-<tag>` or a direct commit. The tag must already exist in the
 service repo (`gh release view`), unless `skip-tag-check: true`.
 
+The registry is an `ApplicationSet` shaped as a `list` generator, so the pin is
+read and written at the service's **element**:
+`.spec.generators[0].list.elements[] | select(.name == "<service>") | .version`.
+Pass `yq-expression` / `set-expression` to override for a different schema. The
+workflow fails fast when the service is not registered in the list yet.
+
 ```yaml
 jobs:
   adopt:
@@ -248,7 +254,9 @@ jobs:
     secrets: inherit
 ```
 
-The prod pin is the single source of truth the reconcile loop reads back from.
+The prod pin is the single source of truth `shared-enforce-latest.yml` reads
+back from. In the per-service flow this is wired through
+[docs/examples/deploy-prod.yml](examples/deploy-prod.yml) (`action: adopt`).
 
 ### Enforce Latest (latest = reality)
 
@@ -256,7 +264,9 @@ Reads the version pinned in the GitOps registry (or an explicit
 `release-tag`), validates it is semver, harmonizes the release list
 (pre-releases for every full release newer than the deployed tag, restore
 of older ones), and marks the deployed tag as GitHub `latest`. `dry-run: true`
-reports without mutating.
+reports without mutating. By default the pin is read from the service's
+`ApplicationSet` element in the registry
+(`.spec.generators[0].list.elements[] | select(.name == "<service>") | .version`).
 
 ```yaml
 jobs:
@@ -269,8 +279,10 @@ jobs:
 
 Outputs: `release-tag`, `changed`, `current-latest`.
 
-See [service-release-model.md](service-release-model.md) for the full
-deployment contract, the bots involved, and the reconciliation loop.
+In the per-service flow this runs **after** the prod `Sync` has applied the
+version, via [docs/examples/deploy-prod.yml](examples/deploy-prod.yml)
+(`action: mark-latest`). See [service-release-model.md](service-release-model.md)
+for the full deployment contract and the bots involved.
 
 ### Auto Label
 

@@ -1,0 +1,50 @@
+# Per-service dev/qa promotion wrapper — copy to .github/workflows/promote.yml
+#
+# One executable workflow for both environments: `shared-service-promote.yml`
+# moves the deploy/dev or deploy/qa branch ref of THIS repo, which the ArgoCD
+# Applications for dev/qa track. A real promote to `qa` runs against the repo's
+# `qa` GitHub Environment: with "Required reviewers" configured on it, a human
+# approves in the Actions UI before the ref moves — no PR involved.
+#
+# Requirements on the service repo:
+#   - secrets APP_ID / APP_PRIVATE_KEY (sca-deploy-bot app) — or map your
+#     DEPLOY_APP_* names explicitly below.
+#   - GitHub Environment named `qa` with Required reviewers (public repos on
+#     Free/Pro/Team, or Enterprise Cloud for private ones).
+#   - ruleset service-deploy-refs from CI-CD-Templates, with higher precedence
+#     than any allowed-branches-only ruleset (docs/rulesets.md).
+#   - `packages: write` is required because the nested publish job requests it;
+#     grant it even though publishing is optional.
+
+name: Promote
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Target environment (dev promotes without approval; qa waits for one)"
+        type: choice
+        options: [dev, qa]
+        required: true
+      ref:
+        description: "Branch or tag to deploy (defaults to the head of main)"
+        type: string
+        default: main
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: promote-${{ github.repository }}
+  cancel-in-progress: false
+
+jobs:
+  promote:
+    name: Promote ${{ inputs.environment }}
+    uses: sca-templates/CI-CD-Templates/.github/workflows/shared-service-promote.yml@main
+    with:
+      environment: ${{ inputs.environment }}
+      service: <service-name>
+      ref: ${{ inputs.ref }}
+    secrets: inherit

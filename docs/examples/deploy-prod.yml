@@ -1,0 +1,56 @@
+# Per-service prod deployment wrapper — copy to .github/workflows/deploy-prod.yml
+#
+# The two manual prod steps, in order (run this workflow twice):
+#   1. action: adopt        -> `shared-adopt-prod.yml` opens the
+#                              chore(services) PR that pins the release tag in
+#                              the GitOps prod registry; a human approves and
+#                              merges it (go/no-go) and ArgoCD syncs prod in
+#                              the manual sync window (ADR-003).
+#   2. action: mark-latest  -> once prod is running the version, mark the
+#                              deployed tag as GitHub `latest` on this repo.
+#
+# The tag itself is created by the service's release-please flow
+# (shared-release-flow.yml) and is NOT marked latest by it; `latest` is only
+# corrected here, after prod adopts the version.
+
+name: Deploy to prod
+
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: "adopt = open the chore(services) PR; mark-latest = mark the deployed tag as latest"
+        type: choice
+        options: [adopt, mark-latest]
+        required: true
+      release-tag:
+        description: "Release tag to adopt in prod (e.g. v1.2.3) — required when action is adopt"
+        type: string
+        required: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-prod-${{ github.repository }}
+  cancel-in-progress: false
+
+jobs:
+  adopt:
+    name: Pin release tag in the prod registry
+    if: ${{ inputs.action == 'adopt' }}
+    uses: sca-templates/CI-CD-Templates/.github/workflows/shared-adopt-prod.yml@main
+    with:
+      service: <service-name>
+      release-tag: ${{ inputs.release-tag }}
+    secrets: inherit
+
+  mark-latest:
+    name: Mark the deployed version as GitHub latest
+    if: ${{ inputs.action == 'mark-latest' }}
+    uses: sca-templates/CI-CD-Templates/.github/workflows/shared-enforce-latest.yml@main
+    with:
+      service: <service-name>
+      tag-source: registry
+      harmonize-releases: true
+    secrets: inherit

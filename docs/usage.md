@@ -193,12 +193,20 @@ Run the workflow from anywhere and it pushes the head of the selected `ref` to
 commit. To require an approval step for QA, configure **Required reviewers** on
 the repo's `qa` Environment (Settings → Environments) — the run then waits for a
 human approve in the Actions UI before moving `deploy/qa`. Details and plan
-limitations: [workflows.md](workflows.md#service-promote-devqa-refs).
+limitations: [workflows.md](workflows.md#service-promote-devqa-refs). A
+ready-to-copy wrapper lives at [docs/examples/promote.yml](examples/promote.yml).
 
-For prod the reconciler (or a human) calls `shared-adopt-prod.yml` with the
-release tag and `shared-enforce-latest.yml` to keep `latest` truthful. See
-[service-release-model.md](service-release-model.md) for wiring, roles, inputs
-and the migration from the retired `shared-gitops-promote.yml`.
+For prod the service repo ships a small `workflow_dispatch` wrapper
+([docs/examples/deploy-prod.yml](examples/deploy-prod.yml)) with two actions:
+
+- **adopt** — calls `shared-adopt-prod.yml` with the release tag: it reads the
+  version currently pinned in the GitOps registry (the ApplicationSet element
+  for the service) and opens the `chore(services)` PR that pins the new one.
+- **mark-latest** — calls `shared-enforce-latest.yml` after the prod `Sync`
+  succeeded, keeping GitHub `latest` truthful.
+
+See [service-release-model.md](service-release-model.md) for wiring, roles,
+inputs and the migration from the retired `shared-gitops-promote.yml`.
 
 ## Applying rulesets
 
