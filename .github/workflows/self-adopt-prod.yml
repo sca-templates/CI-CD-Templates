@@ -1,5 +1,8 @@
 ---
 name: "Self: Adopt Prod"
+# Dry-run smoke of shared-adopt-prod. With the ApplicationSet default lookup
+# this now fails when the service is not registered in the infra prod registry
+# (argocd/services-prod.yaml) — point it at a real service to exercise the run.
 
 on:
   workflow_dispatch:

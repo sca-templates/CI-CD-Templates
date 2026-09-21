@@ -41,16 +41,19 @@ cluster; ArgoCD is the only component with access.
 
 ## Orchestration
 
-A reconcile loop lives in `infra-kubernetes`:
+Prod promotion is **manual per service**: each service repo ships a small
+`workflow_dispatch` wrapper (`docs/examples/deploy-prod.yml`) that calls the
+shared workflows on demand. Two runs, in order:
 
-- runs on a cron (~10–15 min) **and** after each merged `chore(services)` PR;
-- queries the ArgoCD state for each service Application (must be `Synced` &
-  `Healthy` before the version is considered "running");
-- calls `shared-enforce-latest.yml` with `tag-source: explicit` and the tag it
-  observed (`release-tag`), or `tag-source: registry` to read the pin.
+1. **`action: adopt`** calls `shared-adopt-prod.yml` with the `release-tag`: it
+   opens the `chore(services)` PR that pins the version in the GitOps registry.
+2. **`action: mark-latest`** calls `shared-enforce-latest.yml` **after** the
+   prod `Sync` succeeded (the app must be `Synced` & `Healthy` first); it marks
+   the deployed tag as GitHub `latest`.
 
-Optional fast-path: on `release published`, the loop re-marks `latest` to the
-current prod pin without waiting for the next cron tick.
+`shared-enforce-latest.yml` keeps `latest` truthful by re-reading the registry
+pin on every call. A future optional fast-path on `release published` can
+re-mark `latest` automatically; for now the marker moves only on the manual run.
 
 ## Workflows and roles
 
@@ -91,11 +94,19 @@ allowed. Details: [rulesets.md](rulesets.md).
 ## Registry schema
 
 The prod registry file is `argocd/services-prod.yaml` (configurable via
-`registry-path`). The lookup key defaults to the service name with a tolerant
-fallback chain — `.svc.version → .applications.svc.version →
-.services.svc.version` — all expressions configurable via `yq-expression` /
-`set-expression`. If the real schema differs, pass the correct expression
-instead of editing the templates.
+`registry-path`). It is an `ApplicationSet` whose `list` generator holds one
+`element` per service, so `shared-adopt-prod.yml` /
+`shared-enforce-latest.yml` default to that element lookup through yq `select`:
+
+| Purpose | Default expression |
+|---|---|
+| Read the pinned version | `.spec.generators[0].list.elements[] \| select(.name == "<service>") \| .version` |
+| Write the pinned version | same path (assign) |
+
+Both expressions are configurable via `yq-expression` / `set-expression`, so
+pass your own if a consumer's registry schema differs.
+`shared-adopt-prod.yml` fails fast when `<service>` is not yet registered in
+the list, and reuses an open `adopt/<service>-<tag>` PR when one exists.
 
 ## Migrating from `shared-gitops-promote.yml`
 

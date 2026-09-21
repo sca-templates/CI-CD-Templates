@@ -25,7 +25,7 @@ on:
         type: string
         default: "argocd/services-prod.yaml"
       yq-expression:
-        description: "yq expression reading the pinned version; defaults to a service lookup"
+        description: "yq expression reading the pinned version; defaults to an ApplicationSet element lookup"
         type: string
         default: ""
       tag-source:
@@ -118,7 +118,7 @@ jobs:
 
           READ_EXPR="$yq_expression"
           if [ -z "$READ_EXPR" ]; then
-            READ_EXPR=".${service}.version // .applications.${service}.version // .services.${service}.version"
+            READ_EXPR=".spec.generators[0].list.elements[] | select(.name == \"${service}\") | .version"
           fi
 
           GITOPS_DIR="$RUNNER_TEMP/enforce-latest"
@@ -135,7 +135,7 @@ jobs:
 
           VERSION="$("$yq" eval "$READ_EXPR" "$REGISTRY" 2>/dev/null || true)"
           if [ -z "$VERSION" ] || [ "$VERSION" = "null" ]; then
-            echo "::error::no version pin found for '$service' in $registry_path"
+            echo "::error::no version pin found for '$service' in $registry_path; add its element to the ApplicationSet list with a version"
             exit 1
           fi
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
