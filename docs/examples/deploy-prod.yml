@@ -43,7 +43,9 @@ jobs:
     with:
       service: <service-name>
       release-tag: ${{ inputs.release-tag }}
-    secrets: inherit
+    secrets:
+      APP_ID: ${{ secrets.APP_ID }}
+      APP_PRIVATE_KEY: ${{ secrets.APP_PRIVATE_KEY }}
 
   mark-latest:
     name: Mark the deployed version as GitHub latest
@@ -53,4 +55,6 @@ jobs:
       service: <service-name>
       tag-source: registry
       harmonize-releases: true
-    secrets: inherit
+    secrets:
+      APP_ID: ${{ secrets.APP_ID }}
+      APP_PRIVATE_KEY: ${{ secrets.APP_PRIVATE_KEY }}

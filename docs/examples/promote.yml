@@ -47,4 +47,6 @@ jobs:
       environment: ${{ inputs.environment }}
       service: <service-name>
       ref: ${{ inputs.ref }}
-    secrets: inherit
+    secrets:
+      APP_ID: ${{ secrets.APP_ID }}
+      APP_PRIVATE_KEY: ${{ secrets.APP_PRIVATE_KEY }}
