@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.3.0](https://github.com/sca-templates/CI-CD-Templates/compare/v2.2.0...v2.3.0) (2026-09-21)
+
+
+### Features
+
+* **workflows:** enable the ApplicationSet list registry expressions ([#32](https://github.com/sca-templates/CI-CD-Templates/issues/32)) ([6d0c0cf](https://github.com/sca-templates/CI-CD-Templates/commit/6d0c0cf4f90a764862570bbe3d350dcc6733b0f1))
+
 ## [2.2.0](https://github.com/sca-templates/CI-CD-Templates/compare/v2.1.0...v2.2.0) (2026-09-20)
 
 
