@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.5.0](https://github.com/sca-templates/CI-CD-Templates/compare/v2.4.2...v2.5.0) (2026-09-22)
+
+
+### Features
+
+* **ci:** make template structure tests optional ([#42](https://github.com/sca-templates/CI-CD-Templates/issues/42)) ([dc6f1b9](https://github.com/sca-templates/CI-CD-Templates/commit/dc6f1b9f7833099ed59440dae7149a5a70173aff))
+
 ## [2.4.2](https://github.com/sca-templates/CI-CD-Templates/compare/v2.4.1...v2.4.2) (2026-09-22)
 
 
