@@ -406,8 +406,8 @@ jobs:
 3. Add rulesets under `.github/rulesets/<tech>-*.json`
 4. Update this file, `docs/INDEX.md`, and `README.md`
 
-## Cross-repository reuse (composite actions)
+## Cross-repository reuse (concurrency)
 
-Reusable workflows (`shared-*`, `stack-*`) must be **self-contained** when they are meant to be called from other repositories. A composite action referenced inside a called workflow as `sca-templates/CI-CD-Templates/.github/actions/<name>@<sha>` does **not** resolve when the called workflow runs in a consumer repository — GitHub resolves it in the caller's context and the run fails at dispatch, before any job starts ("This run likely failed because of a workflow file issue." with no jobs).
+Reusable workflows (`shared-*`, `stack-*`) must be callable from other repositories. A dispatch failure that completes instantly with **zero jobs** and the message "This run likely failed because of a workflow file issue." (no check run, no log) is the signature of the **concurrency group collision**: the caller and the called workflow declare the **same** top-level `concurrency.group` (e.g. `auto-label-${{ github.head_ref || github.ref }}` on both sides). GitHub rejects the re-entrant group at dispatch.
 
-Keep the logic in the reusable workflow's own steps. Composites under `.github/actions/` are for **direct step use in a consumer's own workflow** only — see [docs/usage.md](usage.md#referencing-composite-actions).
+Rule: a reusable workflow's `concurrency.group` must be distinct from caller conventions — prefix it (`shared-auto-label-…`) or drop `concurrency` from the called workflow entirely. Composites under `.github/actions/` are for **direct step use in a consumer's own workflow** — see [docs/usage.md](usage.md#referencing-composite-actions).
