@@ -75,10 +75,10 @@ jobs:
             LABELS_ARR+=("${label}")
           }
 
-          PP_REQ="--repo ${REPO}"
-          TITLE="$(gh pr view "${PR}" ${PP_REQ} --json title --jq '.title')"
-          AUTHOR="$(gh pr view "${PR}" ${PP_REQ} --json author --jq '.author.login')"
-          FILES="$(gh pr diff "${PR}" ${PP_REQ} --name-only || true)"
+          PP_REQ_ARGS=(--repo "${REPO}")
+          TITLE="$(gh pr view "${PR}" "${PP_REQ_ARGS[@]}" --json title --jq '.title')"
+          AUTHOR="$(gh pr view "${PR}" "${PP_REQ_ARGS[@]}" --json author --jq '.author.login')"
+          FILES="$(gh pr diff "${PR}" "${PP_REQ_ARGS[@]}" --name-only || true)"
 
           # --- Dependabot PRs are always dependency updates. ---
           if [ "${AUTHOR}" = "dependabot[bot]" ]; then
@@ -154,7 +154,7 @@ jobs:
             for label in "${LABELS_ARR[@]}"; do
               args+=(--add-label "${label}")
             done
-            gh pr edit "${PR}" ${PP_REQ} "${args[@]}"
+            gh pr edit "${PR}" "${PP_REQ_ARGS[@]}" "${args[@]}"
             LABELS_ADDED="${LABELS_ARR[*]}"
           fi
 
