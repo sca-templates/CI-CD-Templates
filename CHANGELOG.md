@@ -1,5 +1,16 @@
 # Changelog
 
+## [3.0.0](https://github.com/sca-templates/CI-CD-Templates/compare/v2.5.0...v3.0.0) (2026-09-22)
+
+
+### ⚠ BREAKING CHANGES
+
+* **ci:** Removed shared-validate-static, shared-stale-notify, shared-dast, and shared-scorecard. shared-security-scan no longer accepts SonarQube, Semgrep, Dependency-Check, or license inputs.
+
+### Code Refactoring
+
+* **ci:** retire redundant workflows and move linting to pre-commit ([#44](https://github.com/sca-templates/CI-CD-Templates/issues/44)) ([b8a388b](https://github.com/sca-templates/CI-CD-Templates/commit/b8a388b4a4957146f2fc2b7e4df72b8671870848))
+
 ## [2.5.0](https://github.com/sca-templates/CI-CD-Templates/compare/v2.4.2...v2.5.0) (2026-09-22)
 
 
