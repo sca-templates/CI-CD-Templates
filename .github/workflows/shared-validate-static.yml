@@ -20,6 +20,10 @@ on:
         description: "Run actionlint on workflows"
         type: boolean
         default: true
+      template-tests:
+        description: "Run template structure tests (CI-CD-Templates only)"
+        type: boolean
+        default: true
       node-version:
         description: "Node.js version for markdownlint"
         type: string
@@ -90,6 +94,7 @@ jobs:
 
   template-tests:
     name: Test templates
+    if: ${{ inputs.template-tests }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1

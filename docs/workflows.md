@@ -6,7 +6,7 @@ All shared workflows live flat in `.github/workflows/` (GitHub does not support 
 
 | Workflow | File | Description |
 |---|---|---|
-| Static Validation | `shared-validate-static.yml` | Markdown, YAML, shell, actionlint |
+| Static Validation | `shared-validate-static.yml` | Markdown, YAML, shell, actionlint; optional `template-tests` structure tests |
 | Security Scan | `shared-security-scan.yml` | gitleaks, osv-scanner, license check, SonarQube Cloud, Semgrep (OWASP), OWASP Dependency-Check |
 | Release Flow | `shared-release-flow.yml` | release-please + signed tags + optional release-PR auto-merge |
 | QA Lock Check | `shared-qa-lock-check.yml` | Block merges while release PR open |
@@ -33,6 +33,7 @@ jobs:
       markdown-lint: true
       yaml-lint: true
       actionlint: true
+      template-tests: false # consumers without scripts/test-templates.sh
 
   security:
     uses: sca-templates/CI-CD-Templates/.github/workflows/shared-security-scan.yml@main

@@ -20,6 +20,7 @@ jobs:
       markdown-lint: true
       yaml-lint: true
       actionlint: true
+      template-tests: false # only CI-CD-Templates itself runs its structure tests
 
   security:
     uses: sca-templates/CI-CD-Templates/.github/workflows/shared-security-scan.yml@main
