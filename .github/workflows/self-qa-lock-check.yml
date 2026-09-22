@@ -1,0 +1,20 @@
+---
+name: "Self: QA Lock Check"
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+  pull-requests: read
+
+concurrency:
+  group: self-qa-lock-check-${{ github.head_ref || github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  gate:
+    name: release-gate
+    uses: ./.github/workflows/shared-qa-lock-check.yml

@@ -31,14 +31,12 @@ When a required status check covers a job that **calls a reusable workflow**
 
 The ruleset must use that exact prefixed name, otherwise the check stays
 "Expected — Waiting for status to be reported" forever, even after the job
-passes. Example — `self-validate.yml` calls `shared-validate-static.yml`
-as job `Validate`:
+passes. Example — this repo's `self-qa-lock-check.yml` calls
+`shared-qa-lock-check.yml` as job `gate` (name `release-gate`):
 
 | Reported check name | Ruleset context required |
 |---|---|
-| `Validate / Markdown` | `Validate / Markdown` |
-| `Validate / YAML and Shell` | `Validate / YAML and Shell` |
-| `Validate / Analyze (GitHub Actions)` | `Validate / Analyze (GitHub Actions)` |
+| `release-gate / release-gate` | `release-gate / release-gate` |
 
 For a direct (non-reusable) job, use the bare job name.
 

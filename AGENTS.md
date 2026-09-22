@@ -38,17 +38,20 @@ docs/                 # Catalog and usage docs
 
 Technologies are identified by prefix in filenames:
 
-- `shared-*` → global (all repos): `shared-validate-static`, `shared-security-scan`, `shared-release-flow`, `shared-qa-lock-check`, `shared-codeql`, `shared-scorecard`, `shared-service-promote`, `shared-adopt-prod`, `shared-enforce-latest`
+- `shared-*` → global (all repos): `shared-security-scan`, `shared-release-flow`, `shared-qa-lock-check`, `shared-codeql`, `shared-service-promote`, `shared-adopt-prod`, `shared-enforce-latest`
 - `stack-node` → Node.js/Express (install, lint, test)
 - `stack-nest` → NestJS (install, lint, format, test, build)
 - Future: `stack-go-*`, `stack-python-*`, etc.
+
+> Local linting (markdown, YAML, shell, actionlint) is consumer-side via
+> pre-commit; no shared workflow ships these checks.
 
 ## How consumers use this
 
 ```yaml
 jobs:
-  lint:
-    uses: sca-templates/CI-CD-Templates/.github/workflows/shared-validate-static.yml@main
+  security:
+    uses: sca-templates/CI-CD-Templates/.github/workflows/shared-security-scan.yml@main
 ```
 
 Workflows use `workflow_call` trigger. Composite actions use `runs.using: composite`.

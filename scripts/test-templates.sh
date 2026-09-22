@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Template library structural invariants, run by shared-validate-static.
+# Template library structural invariants, run locally via pre-commit
+# (.pre-commit-config.yaml, hook: template-structure).
 #
 # Keeps the catalog self-consistent: reusable workflows are flat, prefixed,
 # self-tested, catalogued in docs, and free of mutable/unpinned references and

@@ -26,15 +26,6 @@ jobs:
     with:
       gitleaks: true
       osv-scan: true
-      license-check: true
-      license-allowed: "MIT,Apache-2.0,ISC,BSD-2-Clause,BSD-3-Clause"
-      # Config-only repo: SonarQube off to spare the free-tier LOC quota;
-      # Semgrep and Dependency-Check exercise the new checks.
-      sonar: false
-      semgrep: true
-      semgrep-config: "p/ci"
-      dependency-check: true
-      fail-on-cvss: "7"
 
   codeql:
     name: Analyze (GitHub Actions)
@@ -45,15 +36,3 @@ jobs:
     uses: ./.github/workflows/shared-codeql.yml
     with:
       languages: '["actions"]'
-
-  scorecard:
-    name: Scorecards
-    if: github.event_name == 'push' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
-    permissions:
-      actions: read
-      contents: read
-      id-token: write
-      security-events: write
-    uses: ./.github/workflows/shared-scorecard.yml
-    with:
-      publish-results: true

@@ -2,8 +2,6 @@
 
 Centralized, reusable CI/CD templates for the [sca-templates](https://github.com/sca-templates) organization. Global and technology-specific workflows, composite actions, and GitHub Rulesets.
 
-[![OpenSSF Best Practices](https://bestpractices.coreinfrastructure.org/projects/<enrollment-id>/badge?style=for-the-badge)](https://bestpractices.coreinfrastructure.org/projects/<enrollment-id>)
-
 ## What's inside
 
 ```text
@@ -23,19 +21,15 @@ Centralized, reusable CI/CD templates for the [sca-templates](https://github.com
 
 | Workflow | File | Description |
 |---|---|---|
-| Static Validation | `shared-validate-static.yml` | Markdown, YAML, shell, actionlint, template structure tests |
-| Security Scan | `shared-security-scan.yml` | gitleaks, osv-scanner, license check, SonarQube Cloud, Semgrep (OWASP), OWASP Dependency-Check |
+| Security Scan | `shared-security-scan.yml` | gitleaks secret scanning + osv-scanner dependency vulnerabilities |
 | Release Flow | `shared-release-flow.yml` | release-please + signed tags, optional release-PR auto-merge |
 | QA Lock Check | `shared-qa-lock-check.yml` | Block merges while release PR open |
 | CodeQL | `shared-codeql.yml` | CodeQL static analysis (GitHub Actions) |
-| Scorecard | `shared-scorecard.yml` | OpenSSF Scorecard supply-chain security |
 | Service Promote | `shared-service-promote.yml` | Sync the `dev`/`qa` ArgoCD Application to a selected revision (ArgoCD API, no git refs) |
 | Adopt Prod | `shared-adopt-prod.yml` | Pin the running release tag as the prod version in the GitOps registry |
 | Enforce Latest | `shared-enforce-latest.yml` | Correct GitHub `latest` to the version actually running in prod |
 | Auto Label | `shared-auto-label.yml` | Assign labels to PRs from type, changed files, and stack (idempotent, add-only) |
 | Changelog Notify | `shared-changelog-notify.yml` | Post release summaries to Slack or Discord; skips silently when no webhook |
-| Stale Notify | `shared-stale-notify.yml` | Comment on inactive issues and PRs; never closes or labels them |
-| DAST (OWASP ZAP) | `shared-dast.yml` | OWASP ZAP baseline/full scan against a running service URL |
 
 ### Stack workflows
 
@@ -60,8 +54,6 @@ name: CI
 on: [push, pull_request]
 
 jobs:
-  validate:
-    uses: sca-templates/CI-CD-Templates/.github/workflows/shared-validate-static.yml@main
   security:
     uses: sca-templates/CI-CD-Templates/.github/workflows/shared-security-scan.yml@main
   release:
@@ -70,6 +62,10 @@ jobs:
       APP_ID: ${{ secrets.APP_ID }}
       APP_PRIVATE_KEY: ${{ secrets.APP_PRIVATE_KEY }}
 ```
+
+> Local linting (markdown, YAML, shell, actionlint) is expected via pre-commit
+> on each consumer; the shared catalog only ships merge-relevant gates that
+> need CI. See [docs/usage.md](docs/usage.md).
 
 ```yaml
 # .github/workflows/promote.yml in your service repo
