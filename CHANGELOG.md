@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.4.2](https://github.com/sca-templates/CI-CD-Templates/compare/v2.4.1...v2.4.2) (2026-09-22)
+
+
+### Bug Fixes
+
+* **ci:** avoid reusable workflow concurrency collision ([#40](https://github.com/sca-templates/CI-CD-Templates/issues/40)) ([933e103](https://github.com/sca-templates/CI-CD-Templates/commit/933e103365e5ad000fe4a92008effd432e94e9db))
+
 ## [2.4.1](https://github.com/sca-templates/CI-CD-Templates/compare/v2.4.0...v2.4.1) (2026-09-22)
 
 
