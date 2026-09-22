@@ -39,16 +39,128 @@ jobs:
     steps:
       - name: Label pull request
         id: label
-        uses: sca-templates/CI-CD-Templates/.github/actions/label-pr@bc8e2f0d775e1b48197263c0bcd95d20c83ad557
-        with:
-          token: ${{ github.token }}
-          repo: ${{ github.repository }}
-          pr-number: ${{ github.event.pull_request.number }}
-          head-ref: ${{ github.head_ref }}
-          type-labels: ${{ inputs.type-labels }}
-          stack-labels: ${{ inputs.stack-labels }}
-          ensure-labels: ${{ inputs.ensure-labels }}
-          global-labels: ${{ inputs.global-labels }}
+        shell: bash
+        env:
+          TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR: ${{ github.event.pull_request.number }}
+          HEAD: ${{ github.head_ref }}
+          TYPE_LABELS: ${{ inputs.type-labels }}
+          STACK_LABELS: ${{ inputs.stack-labels }}
+          ENSURE_LABELS: ${{ inputs.ensure-labels }}
+          GLOBAL_LABELS: ${{ inputs.global-labels }}
+        run: |
+          set -euo pipefail
+          export GH_TOKEN="${TOKEN}"
+
+          # Resolve the pull request number when not provided explicitly.
+          if [ -z "${PR}" ]; then
+            PR="$(gh pr list --repo "${REPO}" --head "${HEAD}" --state open --json number --jq '.[0].number' 2>/dev/null || true)"
+          fi
+          if [ -z "${PR}" ]; then
+            echo "::warning::No open pull request found for branch '${HEAD}' in ${REPO}; skipping."
+            echo "pr-number=" >> "${GITHUB_OUTPUT}"
+            echo "labels-added=" >> "${GITHUB_OUTPUT}"
+            exit 0
+          fi
+
+          LABELS_ARR=()
+          add_label() {
+            local label="$1"
+            for existing in "${LABELS_ARR[@]:-}"; do
+              if [ "${existing}" = "${label}" ]; then
+                return
+              fi
+            done
+            LABELS_ARR+=("${label}")
+          }
+
+          PP_REQ_ARGS=(--repo "${REPO}")
+          TITLE="$(gh pr view "${PR}" "${PP_REQ_ARGS[@]}" --json title --jq '.title')"
+          AUTHOR="$(gh pr view "${PR}" "${PP_REQ_ARGS[@]}" --json author --jq '.author.login')"
+          FILES="$(gh pr diff "${PR}" "${PP_REQ_ARGS[@]}" --name-only || true)"
+
+          # --- Dependabot PRs are always dependency updates. ---
+          if [ "${AUTHOR}" = "dependabot[bot]" ]; then
+            add_label "dependencies"
+          fi
+
+          # --- Type labels from the title (Conventional Commits prefixes). ---
+          if [ "${TYPE_LABELS}" = "true" ]; then
+            case "${TITLE}" in
+              feat*) add_label "feature" ;;
+              fix*) add_label "bug" ;;
+              bug*) add_label "bug" ;;
+              docs*) add_label "documentation" ;;
+              ci*) add_label "ci" ;;
+              refactor*) add_label "refactor" ;;
+              perf*) add_label "enhancement" ;;
+              security*) add_label "security" ;;
+              chore\(deps\)*) add_label "dependencies" ;;
+              build*) add_label "ci" ;;
+            esac
+
+            # Keyword hints in the title when the prefix did not match yet.
+            case "${TITLE}" in
+              *[Ss]ecurity*|*[Cc][Vv][Ee]*|*vulnerab*) add_label "security" ;;
+            esac
+          fi
+
+          # --- Labels from changed files. ---
+          if [ -n "${FILES}" ]; then
+            while IFS= read -r f; do
+              case "${f}" in
+                package-lock.json|yarn.lock|pnpm-lock.yaml|poetry.lock|Pipfile.lock|go.sum|Cargo.lock|composer.lock|packages.lock.json)
+                  add_label "dependencies" ;;
+                .github/workflows/*|.github/actions/*)
+                  add_label "ci" ;;
+                SECURITY.md|security/*)
+                  add_label "security" ;;
+                README*|docs/*.md)
+                  add_label "documentation" ;;
+              esac
+            done < <(printf '%s\n' "${FILES}")
+          fi
+
+          # --- Stack labels (opt-in) from changed files. ---
+          if [ "${STACK_LABELS}" = "true" ]; then
+            if [ -n "${FILES}" ]; then
+              while IFS= read -r f; do
+                case "${f}" in
+                  nest-cli.json|*/nest-cli.json|*/src/app.module.ts) add_label "nest" ;;
+                  package.json) add_label "node" ;;
+                  pyproject.toml|requirements.txt|setup.py|Pipfile) add_label "python" ;;
+                  pom.xml|build.gradle|build.gradle.kts) add_label "java" ;;
+                  go.mod|go.sum) add_label "go" ;;
+                  Cargo.toml|Cargo.lock) add_label "rust" ;;
+                  composer.json|composer.lock) add_label "php" ;;
+                  *.csproj|*.sln) add_label "dotnet" ;;
+                esac
+              done < <(printf '%s\n' "${FILES}")
+            fi
+          fi
+
+          # --- Ensure labels exist (idempotent). ---
+          if [ "${ENSURE_LABELS}" = "true" ] && [ ${#LABELS_ARR[@]} -gt 0 ]; then
+            for label in ${GLOBAL_LABELS} "${LABELS_ARR[@]}"; do
+              gh label create "${label}" --repo "${REPO}" --force >/dev/null 2>&1 || true
+            done
+          fi
+
+          # --- Apply labels (add-only, never removing). ---
+          LABELS_ADDED=""
+          if [ ${#LABELS_ARR[@]} -gt 0 ]; then
+            args=()
+            for label in "${LABELS_ARR[@]}"; do
+              args+=(--add-label "${label}")
+            done
+            gh pr edit "${PR}" "${PP_REQ_ARGS[@]}" "${args[@]}"
+            LABELS_ADDED="${LABELS_ARR[*]}"
+          fi
+
+          echo "pr-number=${PR}" >> "${GITHUB_OUTPUT}"
+          echo "labels-added=${LABELS_ADDED}" >> "${GITHUB_OUTPUT}"
+          echo "Labels applied to ${REPO}#${PR}: ${LABELS_ADDED:-none}"
 
       - name: Report labels
         if: ${{ steps.label.outputs.labels-added != '' }}
