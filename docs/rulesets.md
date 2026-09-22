@@ -32,11 +32,11 @@ When a required status check covers a job that **calls a reusable workflow**
 The ruleset must use that exact prefixed name, otherwise the check stays
 "Expected — Waiting for status to be reported" forever, even after the job
 passes. Example — this repo's `self-qa-lock-check.yml` calls
-`shared-qa-lock-check.yml` as job `gate`:
+`shared-qa-lock-check.yml` as job `gate` (name `release-gate`):
 
 | Reported check name | Ruleset context required |
 |---|---|
-| `gate / release-gate` | `gate / release-gate` |
+| `release-gate / release-gate` | `release-gate / release-gate` |
 
 For a direct (non-reusable) job, use the bare job name.
 
