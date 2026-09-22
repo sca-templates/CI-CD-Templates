@@ -13,8 +13,8 @@ This repo provides CI/CD automation primitives consumed by all repos in the
 ```yaml
 # Consumer repo calls this:
 jobs:
-  lint:
-    uses: sca-templates/CI-CD-Templates/.github/workflows/shared-validate-static.yml@main
+  security:
+    uses: sca-templates/CI-CD-Templates/.github/workflows/shared-security-scan.yml@main
 ```
 
 ## Adding a new reusable workflow

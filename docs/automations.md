@@ -1,8 +1,7 @@
 # Automations
 
-Repository automations on top of the shared workflows: label management, stale
-notifications, and release notifications. Consumed via `uses:` like any shared
-workflow.
+Repository automations on top of the shared workflows: label management and
+release notifications. Consumed via `uses:` like any shared workflow.
 
 ## Auto Label
 
@@ -139,59 +138,3 @@ jobs:
 Set it as a repository or organization secret named `WEBHOOK_URL` (environment
 support: none; the shared workflow has no environment input since release
 notifications are org-global).
-
-## Stale Notify
-
-Comments on issues and pull requests with no activity for longer than a
-threshold. The notifier is deliberately conservative: it **never closes**,
-deletes, or labels anything, and it posts at most one reminder per item per
-threshold (a second one when `remind-again` is enabled, at twice the threshold).
-
-Each comment carries an invisible marker (`<!-- stale-notify -->`,
-`<!-- stale-notify-reminder -->`) so repeated runs never duplicate a reminder.
-
-Triggers: a consumer wrapper with a `schedule` (and optionally
-`workflow_dispatch`).
-
-### Consumer wiring
-
-```yaml
-name: Stale
-
-on:
-  schedule:
-    - cron: "0 7 * * 1"
-  workflow_dispatch:
-
-permissions:
-  contents: read
-  issues: write
-  pull-requests: write
-
-jobs:
-  stale:
-    uses: sca-templates/CI-CD-Templates/.github/workflows/shared-stale-notify.yml@main
-    with:
-      issues-days: 30
-      prs-days: 21
-      remind-again: true
-      max-items: 300
-      dry-run: false
-```
-
-### Inputs
-
-| Input | Default | Description |
-|---|---|---|
-| `issues-days` | `30` | Days of inactivity before notifying on issues |
-| `prs-days` | `21` | Days of inactivity before notifying on pull requests |
-| `remind-again` | `true` | Send a second reminder at twice the threshold |
-| `message-text` | *(built-in)* | Custom message; supports `{days}` and `{kind}` |
-| `max-items` | `300` | Maximum number of open items to scan per run |
-| `dry-run` | `false` | Log what would be notified without posting comments |
-
-### Behavior notes
-
-- Updates to an item reset its inactivity clock (uses the `updated_at` field).
-- `max-items` bounds API usage; items are scanned oldest-updated first.
-- No labels such as `stale` are applied — reminders are comments only.

@@ -14,14 +14,6 @@ on:
   pull_request:
 
 jobs:
-  validate:
-    uses: sca-templates/CI-CD-Templates/.github/workflows/shared-validate-static.yml@main
-    with:
-      markdown-lint: true
-      yaml-lint: true
-      actionlint: true
-      template-tests: false # only CI-CD-Templates itself runs its structure tests
-
   security:
     uses: sca-templates/CI-CD-Templates/.github/workflows/shared-security-scan.yml@main
 
@@ -32,28 +24,26 @@ jobs:
     secrets: inherit
 ```
 
-The security scan ships every check **on by default** (gitleaks, osv-scanner,
-SonarQube Cloud, Semgrep with OWASP rules, OWASP Dependency-Check). Jobs skip
-silently when their secret is missing, so this minimal call already works — the
-checks activate org-wide once `SONAR_TOKEN` and `NVD_API_KEY` exist on the
-organization. Toggle and tune explicitly if you want:
+> **Local linting belongs to pre-commit, not CI.** Markdown, YAML, shell and
+> actionlint checks are not shipped as a workflow; run them as hooks in each
+> consumer (`pre-commit`) so CI only carries merge-relevant gates.
+
+The security scan ships two fast gates on by default — **gitleaks**
+(secret scanning) and **osv-scanner** (dependency vulnerabilities). Both are
+secret-free, so this minimal call already works:
 
 ```yaml
   security:
     uses: sca-templates/CI-CD-Templates/.github/workflows/shared-security-scan.yml@main
     with:
-      sonar: true
-      sonar-organization: sca-templates
-      semgrep-config: "p/owasp-top-ten"
-      semgrep-fail-on: true
-      fail-on-cvss: "7"
-    secrets:
-      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-      NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
+      gitleaks: true
+      osv-scan: true
 ```
 
-See [workflows.md](workflows.md#security-scan) for all inputs and
-[secrets.md](secrets.md#security-scanning) for the secrets involved.
+Dependency advisory PRs are handled by **Dependabot** (factory): enable it in
+the repo and the fixes arrive as PRs at zero Actions cost.
+
+See [workflows.md](workflows.md#security-scan) for all inputs.
 
 ## Referencing composite actions
 
@@ -80,8 +70,8 @@ Technology-specific CI for application repos. Pick the template for your stack �
 ```yaml
 # .github/workflows/ci.yml in a NestJS consumer repo
 jobs:
-  validate:
-    uses: sca-templates/CI-CD-Templates/.github/workflows/shared-validate-static.yml@main
+  security:
+    uses: sca-templates/CI-CD-Templates/.github/workflows/shared-security-scan.yml@main
 
   stack:
     uses: sca-templates/CI-CD-Templates/.github/workflows/stack-nest.yml@main
@@ -232,13 +222,13 @@ See [rulesets.md](rulesets.md) for API and Terraform examples.
 Pin to a major version tag for auto-patches:
 
 ```yaml
-uses: sca-templates/CI-CD-Templates/.github/workflows/shared-validate-static.yml@v1
+uses: sca-templates/CI-CD-Templates/.github/workflows/shared-security-scan.yml@v1
 ```
 
 Or pin to a SHA for maximum safety:
 
 ```yaml
-uses: sca-templates/CI-CD-Templates/.github/workflows/shared-validate-static.yml@a1b2c3d
+uses: sca-templates/CI-CD-Templates/.github/workflows/shared-security-scan.yml@a1b2c3d
 ```
 
 ## Secrets

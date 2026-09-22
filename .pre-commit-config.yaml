@@ -22,3 +22,21 @@ repos:
     hooks:
       - id: markdownlint
         args: ["--config", ".markdownlint-cli2.jsonc"]
+
+  - repo: https://github.com/shellcheck-py/shellcheck
+    rev: v0.10.0.1
+    hooks:
+      - id: shellcheck
+
+  - repo: https://github.com/rhysd/actionlint
+    rev: v1.7.12
+    hooks:
+      - id: actionlint
+
+  - repo: local
+    hooks:
+      - id: template-structure
+        name: Template structure invariants
+        entry: scripts/test-templates.sh
+        language: script
+        files: ^\.github/(workflows|actions)/
