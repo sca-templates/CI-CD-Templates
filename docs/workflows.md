@@ -405,3 +405,9 @@ jobs:
 2. Add composite actions under `.github/actions/<tech>/`
 3. Add rulesets under `.github/rulesets/<tech>-*.json`
 4. Update this file, `docs/INDEX.md`, and `README.md`
+
+## Cross-repository reuse (composite actions)
+
+Reusable workflows (`shared-*`, `stack-*`) must be **self-contained** when they are meant to be called from other repositories. A composite action referenced inside a called workflow as `sca-templates/CI-CD-Templates/.github/actions/<name>@<sha>` does **not** resolve when the called workflow runs in a consumer repository — GitHub resolves it in the caller's context and the run fails at dispatch, before any job starts ("This run likely failed because of a workflow file issue." with no jobs).
+
+Keep the logic in the reusable workflow's own steps. Composites under `.github/actions/` are for **direct step use in a consumer's own workflow** only — see [docs/usage.md](usage.md#referencing-composite-actions).
