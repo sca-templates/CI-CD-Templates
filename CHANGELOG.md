@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.1.0](https://github.com/sca-templates/CI-CD-Templates/compare/v3.0.0...v3.1.0) (2026-09-23)
+
+
+### Features
+
+* **ci:** add local-first runner and AWS environment toggles ([#46](https://github.com/sca-templates/CI-CD-Templates/issues/46)) ([8864b16](https://github.com/sca-templates/CI-CD-Templates/commit/8864b16e2befcc2cd7836f9eb8b873acc84daa90))
+
 ## [3.0.0](https://github.com/sca-templates/CI-CD-Templates/compare/v2.5.0...v3.0.0) (2026-09-22)
 
 
