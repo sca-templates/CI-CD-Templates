@@ -62,7 +62,7 @@ concurrency:
 jobs:
   adopt:
     name: Adopt prod pin
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.RUNS_ON || 'ubuntu-latest' }}
     outputs:
       current-version: ${{ steps.pin.outputs.current-version }}
       updated: ${{ steps.pin.outputs.updated }}

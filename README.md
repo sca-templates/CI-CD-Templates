@@ -39,6 +39,15 @@ Centralized, reusable CI/CD templates for the [sca-templates](https://github.com
 | Node TypeScript | `stack-node-ts.yml` | TypeScript: install, lint, test, build; optional publish |
 | Nest | `stack-nest.yml` | NestJS: install, lint, format, test, build; optional publish |
 
+### Composite actions
+
+| Action | File | Description |
+|---|---|---|
+| Configure AWS Env | `configure-aws-env` | Expand the AWS environment (`AWS_MODE` local/cloud) before any AWS step |
+| ArgoCD App Sync | `argocd-app-sync` | Sync an ArgoCD Application to a revision via the API with a scoped token |
+| Mint App Token | `mint-app-token` | Issue a GitHub App installation token for automation git writes |
+| Notify Release | `notify-release` | Post release summaries to Slack or Discord |
+
 ### Rulesets
 
 | Ruleset | File | Description |
@@ -100,6 +109,7 @@ deploy model behind ArgoCD syncs, prod pins, and the `latest` marker.
 - [Documentation index](docs/INDEX.md)
 - [Workflows catalog](docs/workflows.md)
 - [Rulesets catalog](docs/rulesets.md)
+- [Environments](docs/environments.md)
 - [Automations](docs/automations.md)
 - [Usage guide](docs/usage.md)
 - [Service release model](docs/service-release-model.md)
