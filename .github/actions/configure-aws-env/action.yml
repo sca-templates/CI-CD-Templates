@@ -1,0 +1,52 @@
+---
+name: Configure AWS Env
+description: >-
+  Export AWS credentials, region and endpoint for local (Floci/LocalStack emulation) or cloud mode.
+  Behavior is driven solely by GitHub variables and secrets (AWS_MODE, AWS_ENDPOINT_URL,
+  AWS_DEFAULT_REGION, AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY) so the local-to-cloud flip is a value
+  change. Run this action before any step that talks to AWS.
+
+runs:
+  using: composite
+  steps:
+    - name: Export AWS environment
+      shell: bash
+      env:
+        AWS_MODE: ${{ vars.AWS_MODE }}
+        AWS_ENDPOINT_URL: ${{ vars.AWS_ENDPOINT_URL }}
+        AWS_DEFAULT_REGION: ${{ vars.AWS_DEFAULT_REGION }}
+        AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      run: |
+        set -euo pipefail
+
+        MODE="${AWS_MODE:-local}"
+        REGION="${AWS_DEFAULT_REGION:-us-east-1}"
+        ENDPOINT="${AWS_ENDPOINT_URL:-}"
+
+        case "${MODE}" in
+          local)
+            echo "AWS mode: local (Floci/LocalStack emulation)"
+            echo "AWS_ACCESS_KEY_ID=test" >> "${GITHUB_ENV}"
+            echo "AWS_SECRET_ACCESS_KEY=test" >> "${GITHUB_ENV}"
+            echo "AWS_DEFAULT_REGION=${REGION}" >> "${GITHUB_ENV}"
+            echo "AWS_ENDPOINT_URL=${ENDPOINT:-http://localhost:4566}" >> "${GITHUB_ENV}"
+            ;;
+          cloud)
+            if [ -z "${AWS_ACCESS_KEY_ID}" ] || [ -z "${AWS_SECRET_ACCESS_KEY}" ]; then
+              echo "::error::AWS mode 'cloud' requires the AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY secrets at org or environment level."
+              exit 1
+            fi
+            echo "AWS mode: cloud (real AWS)"
+            echo "AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}" >> "${GITHUB_ENV}"
+            echo "AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}" >> "${GITHUB_ENV}"
+            echo "AWS_DEFAULT_REGION=${REGION}" >> "${GITHUB_ENV}"
+            if [ -n "${ENDPOINT}" ]; then
+              echo "AWS_ENDPOINT_URL=${ENDPOINT}" >> "${GITHUB_ENV}"
+            fi
+            ;;
+          *)
+            echo "::error::vars.AWS_MODE must be 'local' or 'cloud' (got '${MODE}')"
+            exit 1
+            ;;
+        esac

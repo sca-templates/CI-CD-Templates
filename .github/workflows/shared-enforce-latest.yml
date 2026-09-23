@@ -62,7 +62,7 @@ concurrency:
 jobs:
   enforce:
     name: Enforce latest release
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.RUNS_ON || 'ubuntu-latest' }}
     outputs:
       release-tag: ${{ steps.resolve.outputs.release-tag }}
       changed: ${{ steps.mark.outputs.changed }}

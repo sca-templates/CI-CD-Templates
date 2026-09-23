@@ -71,7 +71,7 @@ concurrency:
 jobs:
   promote:
     name: Promote ${{ inputs.environment }}
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.RUNS_ON || 'ubuntu-latest' }}
     environment: ${{ inputs.environment }}
     env:
       APP: ${{ inputs.app || format('{0}-{1}', inputs.service, inputs.environment) }}
@@ -117,7 +117,7 @@ jobs:
         if: ${{ inputs.dry-run != 'true' }}
         uses: ./.github/actions/argocd-app-sync
         with:
-          server: ${{ secrets.ARGOCD_SERVER }}
+          server: ${{ secrets.ARGOCD_SERVER || vars.ARGOCD_SERVER }}
           token: ${{ secrets.ARGOCD_TOKEN }}
           app: ${{ env.APP }}
           revision: ${{ steps.resolve.outputs.commit }}
@@ -128,7 +128,7 @@ jobs:
     name: Publish Docker image
     needs: promote
     if: ${{ inputs.run-publish == 'true' && inputs.dry-run != 'true' }}
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.RUNS_ON || 'ubuntu-latest' }}
     permissions:
       contents: read
       packages: write
@@ -154,7 +154,7 @@ jobs:
       - name: Log in to GitHub Container Registry
         uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
         with:
-          registry: ghcr.io
+          registry: ${{ vars.CONTAINER_REGISTRY || 'ghcr.io' }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 

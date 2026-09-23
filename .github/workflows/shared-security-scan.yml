@@ -24,7 +24,7 @@ jobs:
   gitleaks:
     name: Secrets (gitleaks)
     if: ${{ inputs.gitleaks }}
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.RUNS_ON || 'ubuntu-latest' }}
     permissions:
       contents: read
       security-events: write
@@ -41,7 +41,11 @@ jobs:
             -o /tmp/gitleaks.tar.gz
           printf '%s  %s\n' "${GITLEAKS_SHA256}" /tmp/gitleaks.tar.gz | sha256sum -c -
           tar -xzf /tmp/gitleaks.tar.gz -C /tmp gitleaks
-          sudo install -m 0755 /tmp/gitleaks /usr/local/bin/gitleaks
+          GITLEAKS_DIR="$RUNNER_TOOL_CACHE/gitleaks/${GITLEAKS_VERSION}/x64"
+          mkdir -p "$GITLEAKS_DIR"
+          mv /tmp/gitleaks "$GITLEAKS_DIR/gitleaks"
+          chmod +x "$GITLEAKS_DIR/gitleaks"
+          echo "$GITLEAKS_DIR" >> "$GITHUB_PATH"
 
       - name: gitleaks detect
         run: gitleaks detect --source . --report-format sarif --report-path gitleaks.sarif
@@ -55,7 +59,7 @@ jobs:
   osv:
     name: Dependency Vulnerabilities (osv)
     if: ${{ inputs.osv-scan }}
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.RUNS_ON || 'ubuntu-latest' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -67,7 +71,10 @@ jobs:
             -o /tmp/osv-scanner
           printf '%s  %s\n' "${OSV_SHA256}" /tmp/osv-scanner | sha256sum -c -
           chmod +x /tmp/osv-scanner
-          sudo install -m 0755 /tmp/osv-scanner /usr/local/bin/osv-scanner
+          OSV_DIR="$RUNNER_TOOL_CACHE/osv-scanner/${OSV_VERSION}/x64"
+          mkdir -p "$OSV_DIR"
+          mv /tmp/osv-scanner "$OSV_DIR/osv-scanner"
+          echo "$OSV_DIR" >> "$GITHUB_PATH"
 
       - name: osv-scanner scan
         run: |
