@@ -51,7 +51,7 @@ while IFS= read -r ref; do
 done < <(grep -rhoE 'CI-CD-Templates/\.github/(actions|workflows)/[^@[:space:]]+@[0-9a-zA-Z._/-]+' "$WF" || true)
 
 # No run-step that starts with an interpolated expression (command injection).
-if grep -rnE '^[[:space:]]*run:[[:space:]]*\${{' "$WF" >/dev/null 2>&1; then
+if grep -rnE '^[[:space:]]*run:[[:space:]]*[$][{]{' "$WF" >/dev/null 2>&1; then
   fail_msg "run steps must not interpolate expressions as commands"
 fi
 
