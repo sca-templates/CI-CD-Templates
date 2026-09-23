@@ -24,29 +24,74 @@ runs:
         REGION="${AWS_DEFAULT_REGION:-us-east-1}"
         ENDPOINT="${AWS_ENDPOINT_URL:-}"
 
+        # Validate every variable before any GITHUB_ENV write so a malformed
+        # value can never smuggle extra NAME=value lines into downstream steps.
+        if [[ ! "${REGION}" =~ ^[a-z0-9-]+$ ]]; then
+          echo "::error::AWS_DEFAULT_REGION must use [a-z0-9-] (got '${REGION}')" >&2
+          exit 1
+        fi
+        if [ -n "${ENDPOINT}" ]; then
+          case "${ENDPOINT}" in
+            http://*|https://*) ;;
+            *)
+              echo "::error::AWS_ENDPOINT_URL must be an http(s):// URL (got '${ENDPOINT}')" >&2
+              exit 1
+              ;;
+          esac
+          case "${ENDPOINT}" in
+            *[![:print:]]*)
+              echo "::error::AWS_ENDPOINT_URL contains non-printable characters" >&2
+              exit 1
+              ;;
+          esac
+        fi
+
+        # Write with the GITHUB_ENV multi-line value syntax and a fixed
+        # delimiter: the value bytes land on a single line, so newlines or '='
+        # inside any variable cannot inject extra environment entries.
+        write_env() {
+          local name="$1"
+          local value="$2"
+          printf '%s<<_SCA_AWS_EOF\n' "${name}" >>"${GITHUB_ENV}"
+          printf '%s\n' "${value}" >>"${GITHUB_ENV}"
+          printf '_SCA_AWS_EOF\n' >>"${GITHUB_ENV}"
+        }
+
         case "${MODE}" in
           local)
             echo "AWS mode: local (Floci/LocalStack emulation)"
-            echo "AWS_ACCESS_KEY_ID=test" >> "${GITHUB_ENV}"
-            echo "AWS_SECRET_ACCESS_KEY=test" >> "${GITHUB_ENV}"
-            echo "AWS_DEFAULT_REGION=${REGION}" >> "${GITHUB_ENV}"
-            echo "AWS_ENDPOINT_URL=${ENDPOINT:-http://localhost:4566}" >> "${GITHUB_ENV}"
+            write_env AWS_ACCESS_KEY_ID test
+            write_env AWS_SECRET_ACCESS_KEY test
+            write_env AWS_DEFAULT_REGION "${REGION}"
+            write_env AWS_ENDPOINT_URL "${ENDPOINT:-http://localhost:4566}"
             ;;
           cloud)
             if [ -z "${AWS_ACCESS_KEY_ID}" ] || [ -z "${AWS_SECRET_ACCESS_KEY}" ]; then
-              echo "::error::AWS mode 'cloud' requires the AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY secrets at org or environment level."
+              echo "::error::AWS mode 'cloud' requires the AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY secrets at org or environment level." >&2
               exit 1
             fi
+            case "${AWS_ACCESS_KEY_ID}" in
+              *[![:print:]]*)
+                echo "::error::AWS_ACCESS_KEY_ID contains non-printable characters" >&2
+                exit 1
+                ;;
+            esac
+            case "${AWS_SECRET_ACCESS_KEY}" in
+              *[![:print:]]*)
+                echo "::error::AWS_SECRET_ACCESS_KEY contains non-printable characters" >&2
+                exit 1
+                ;;
+            esac
             echo "AWS mode: cloud (real AWS)"
-            echo "AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}" >> "${GITHUB_ENV}"
-            echo "AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}" >> "${GITHUB_ENV}"
-            echo "AWS_DEFAULT_REGION=${REGION}" >> "${GITHUB_ENV}"
+            write_env AWS_ACCESS_KEY_ID "${AWS_ACCESS_KEY_ID}"
+            write_env AWS_SECRET_ACCESS_KEY "${AWS_SECRET_ACCESS_KEY}"
+            write_env AWS_DEFAULT_REGION "${REGION}"
             if [ -n "${ENDPOINT}" ]; then
-              echo "AWS_ENDPOINT_URL=${ENDPOINT}" >> "${GITHUB_ENV}"
+              write_env AWS_ENDPOINT_URL "${ENDPOINT}"
             fi
             ;;
           *)
-            echo "::error::vars.AWS_MODE must be 'local' or 'cloud' (got '${MODE}')"
+            echo "::error::vars.AWS_MODE must be 'local' or 'cloud' (got '${MODE}')" >&2
             exit 1
             ;;
         esac
