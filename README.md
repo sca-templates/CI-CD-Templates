@@ -43,7 +43,6 @@ Centralized, reusable CI/CD templates for the [sca-templates](https://github.com
 
 | Action | File | Description |
 |---|---|---|
-| Configure AWS Env | `configure-aws-env` | Expand the AWS environment (`AWS_MODE` local/cloud) before any AWS step |
 | ArgoCD App Sync | `argocd-app-sync` | Sync an ArgoCD Application to a revision via the API with a scoped token |
 | Mint App Token | `mint-app-token` | Issue a GitHub App installation token for automation git writes |
 | Notify Release | `notify-release` | Post release summaries to Slack or Discord |
