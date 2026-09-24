@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.2.0](https://github.com/sca-templates/CI-CD-Templates/compare/v3.1.1...v3.2.0) (2026-09-24)
+
+
+### Features
+
+* **actions:** replace configure-aws-env with configure-cloud-env provider/mode driver ([#50](https://github.com/sca-templates/CI-CD-Templates/issues/50)) ([3a3511a](https://github.com/sca-templates/CI-CD-Templates/commit/3a3511aa7657802ae661cbc6ac765ab8bcb995eb))
+
 ## [3.1.1](https://github.com/sca-templates/CI-CD-Templates/compare/v3.1.0...v3.1.1) (2026-09-24)
 
 
