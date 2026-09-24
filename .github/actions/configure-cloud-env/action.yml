@@ -1,0 +1,26 @@
+---
+name: Configure Cloud Env
+description: >-
+  Export cloud provider credentials, region and endpoint for a provider in
+  either local (emulation, e.g. LocalStack for AWS) or cloud (real provider)
+  mode. Provider and mode are set via variables (CLOUD_PROVIDER, CLOUD_MODE);
+  provider-specific credentials come from AWS_* variables/secrets (for AWS).
+  The local-to-cloud flip is a value-only change for a provider already
+  provisioned; adopting a provider for the first time additionally requires
+  provisioning that provider's credentials. Run this action before any step
+  that talks to the cloud.
+inputs: {}
+runs:
+  using: composite
+  steps:
+    - name: Configure cloud environment
+      shell: bash
+      env:
+        CLOUD_PROVIDER: ${{ vars.CLOUD_PROVIDER }}
+        CLOUD_MODE: ${{ vars.CLOUD_MODE }}
+        CLOUD_REGION: ${{ vars.CLOUD_REGION || vars.AWS_DEFAULT_REGION }}
+        CLOUD_ENDPOINT_URL: ${{ vars.CLOUD_ENDPOINT_URL || vars.AWS_ENDPOINT_URL }}
+        AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      run: |
+        bash "${GITHUB_ACTION_PATH}/configure-cloud-env.sh"
