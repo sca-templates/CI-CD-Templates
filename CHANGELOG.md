@@ -1,5 +1,13 @@
 # Changelog
 
+## [3.1.1](https://github.com/sca-templates/CI-CD-Templates/compare/v3.1.0...v3.1.1) (2026-09-24)
+
+
+### Bug Fixes
+
+* **ci:** repair pre-commit tooling ([#48](https://github.com/sca-templates/CI-CD-Templates/issues/48)) ([ce61d10](https://github.com/sca-templates/CI-CD-Templates/commit/ce61d10efa7f990420c3eef6d830de779d8927e0))
+* **ci:** repair pre-commit tooling hooks ([ce61d10](https://github.com/sca-templates/CI-CD-Templates/commit/ce61d10efa7f990420c3eef6d830de779d8927e0))
+
 ## [3.1.0](https://github.com/sca-templates/CI-CD-Templates/compare/v3.0.0...v3.1.0) (2026-09-23)
 
 
