@@ -118,7 +118,7 @@ jobs:
   auto-merge:
     name: Enable release PR auto-merge
     needs: release
-    if: ${{ inputs.auto-merge-release-pr == 'true' && needs.release.outputs.pr != '' }}
+    if: ${{ inputs.auto-merge-release-pr && needs.release.outputs.pr != '' }}
     runs-on: ${{ vars.RUNS_ON || 'ubuntu-latest' }}
     permissions:
       contents: read
