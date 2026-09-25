@@ -37,3 +37,4 @@ jobs:
       service: ${{ inputs.service }}
       revision: ${{ inputs.branch }}
       dry-run: true
+    secrets: inherit

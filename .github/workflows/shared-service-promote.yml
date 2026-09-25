@@ -104,7 +104,7 @@ jobs:
           exit 1
 
       - name: Report dry-run
-        if: ${{ inputs.dry-run == 'true' }}
+        if: ${{ inputs.dry-run }}
         shell: bash
         env:
           REVISION: ${{ inputs.revision }}
@@ -114,7 +114,7 @@ jobs:
           echo "::warning::dry-run — would sync ${APP} to ${REVISION} (${COMMIT})"
 
       - name: Sync ArgoCD app
-        if: ${{ inputs.dry-run != 'true' }}
+        if: ${{ !inputs.dry-run }}
         uses: ./.github/actions/argocd-app-sync
         with:
           server: ${{ secrets.ARGOCD_SERVER || vars.ARGOCD_SERVER }}
@@ -127,7 +127,7 @@ jobs:
   publish:
     name: Publish Docker image
     needs: promote
-    if: ${{ inputs.run-publish == 'true' && inputs.dry-run != 'true' }}
+    if: ${{ inputs.run-publish && !inputs.dry-run }}
     runs-on: ${{ vars.RUNS_ON || 'ubuntu-latest' }}
     permissions:
       contents: read
