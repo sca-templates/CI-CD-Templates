@@ -22,8 +22,6 @@
 
 ## Checklist
 
-- [ ] YAML valid for changed workflows/actions (`yamllint`)
-- [ ] Markdown valid for changed docs (`markdownlint-cli2`)
 - [ ] Reusable workflows are **flat** in `.github/workflows/` (no subdirectories)
 - [ ] `workflow_call` triggers define explicit inputs and secrets
 - [ ] Composite actions use `runs.using: composite`
@@ -46,16 +44,12 @@
 
 ## Additional context
 
-<!-- Any other context or screenshots reviewers should know about. -->
+<!-- Any other context reviewers should know about. -->
 
 ## Linked issues
 
-<!-- e.g. - [ ] Fixes #123 -->
-- [ ] issue 1
-- [ ] issue 2
+<!-- e.g. - [ ] Fixes #123 — delete this section if not applicable. -->
 
 ## Linked pull requests
 
-<!-- e.g. - [ ] Depends on #000 -->
-- [ ] pull request 1
-- [ ] pull request 2
+<!-- e.g. - [ ] Depends on #000 — delete this section if not applicable. -->
