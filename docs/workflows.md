@@ -10,7 +10,7 @@ All shared workflows live flat in `.github/workflows/` (GitHub does not support 
 | Release Flow | `shared-release-flow.yml` | release-please + signed tags + optional release-PR auto-merge |
 | QA Lock Check | `shared-qa-lock-check.yml` | Block merges while release PR open |
 | CodeQL | `shared-codeql.yml` | CodeQL static analysis (GitHub Actions) |
-| Service Promote | `shared-service-promote.yml` | Promote a selected branch/tag/commit to `deploy/<env>` (dev/qa) so ArgoCD tracks it; QA requires human approval |
+| Service Promote | `shared-service-promote.yml` | Sync the service's dev/qa ArgoCD Application to a selected branch/tag/commit via the ArgoCD API — no PR and no `deploy/*` ref; QA pauses for human approval when Required reviewers are configured |
 | Adopt Prod | `shared-adopt-prod.yml` | Pin a release tag as the version running in prod (GitOps registry, PR or direct commit) |
 | Enforce Latest | `shared-enforce-latest.yml` | Correct GitHub `latest` release to the version actually deployed in prod |
 | Auto Label | `shared-auto-label.yml` | Assign labels to PRs from type, changed files, and stack (idempotent, add-only) |
