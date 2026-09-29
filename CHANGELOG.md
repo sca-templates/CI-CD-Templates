@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.3.0](https://github.com/sca-templates/CI-CD-Templates/compare/v3.2.0...v3.3.0) (2026-09-29)
+
+
+### Features
+
+* **templates:** add setup-node-project composite action with pnpm support ([#59](https://github.com/sca-templates/CI-CD-Templates/issues/59)) ([0e6b52c](https://github.com/sca-templates/CI-CD-Templates/commit/0e6b52cc44201cad289baef438183b00327b6351))
+
 ## [3.2.0](https://github.com/sca-templates/CI-CD-Templates/compare/v3.1.1...v3.2.0) (2026-09-24)
 
 
