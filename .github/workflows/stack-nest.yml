@@ -1,6 +1,14 @@
 ---
 name: "Stack: Nest"
 
+# Action references below are full cross-repo refs pinned to v3.3.0, deliberately
+# NOT `uses: ./…`. Inside a reusable workflow a `./` path resolves against the
+# *calling* repository, so it only resolves for callers inside CI-CD-Templates and
+# fails everywhere else with "Can't find 'action.yml' … under <checkout>/.github/actions/…".
+# Note the contrast with the `self-*.yml` workflows, which call `shared-*`/`stack-*` with
+# local `./.github/workflows/…` refs: that is correct, because `self-*` are not reusable
+# and always execute in their own repository.
+
 on:
   workflow_call:
     inputs:
@@ -77,7 +85,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Set up the project
-        uses: ./.github/actions/setup-node-project
+        uses: sca-templates/CI-CD-Templates/.github/actions/setup-node-project@144996d6e0870c6820ac02a7835faef217f9c2d4 # v3.3.0
         with:
           node-version: ${{ inputs.node-version }}
           working-directory: ${{ inputs.working-directory }}
@@ -96,7 +104,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Set up the project
-        uses: ./.github/actions/setup-node-project
+        uses: sca-templates/CI-CD-Templates/.github/actions/setup-node-project@144996d6e0870c6820ac02a7835faef217f9c2d4 # v3.3.0
         with:
           node-version: ${{ inputs.node-version }}
           working-directory: ${{ inputs.working-directory }}
@@ -115,7 +123,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Set up the project
-        uses: ./.github/actions/setup-node-project
+        uses: sca-templates/CI-CD-Templates/.github/actions/setup-node-project@144996d6e0870c6820ac02a7835faef217f9c2d4 # v3.3.0
         with:
           node-version: ${{ inputs.node-version }}
           working-directory: ${{ inputs.working-directory }}
@@ -134,7 +142,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Set up the project
-        uses: ./.github/actions/setup-node-project
+        uses: sca-templates/CI-CD-Templates/.github/actions/setup-node-project@144996d6e0870c6820ac02a7835faef217f9c2d4 # v3.3.0
         with:
           node-version: ${{ inputs.node-version }}
           working-directory: ${{ inputs.working-directory }}
@@ -156,7 +164,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Set up the project
-        uses: ./.github/actions/setup-node-project
+        uses: sca-templates/CI-CD-Templates/.github/actions/setup-node-project@144996d6e0870c6820ac02a7835faef217f9c2d4 # v3.3.0
         with:
           node-version: ${{ inputs.node-version }}
           working-directory: ${{ inputs.working-directory }}
