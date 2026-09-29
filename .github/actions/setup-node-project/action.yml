@@ -1,0 +1,67 @@
+---
+name: Setup Node project
+description: Install the package manager, set up Node.js and install dependencies for a Node.js project (npm or pnpm).
+
+inputs:
+  node-version:
+    description: Node.js version to use
+    required: true
+  working-directory:
+    description: Directory containing package.json
+    required: false
+    default: "."
+  package-manager:
+    description: Package manager used by the project
+    required: false
+    default: "npm"
+  pnpm-version:
+    description: pnpm version to install; keep it in sync with the packageManager field in package.json
+    required: false
+    default: "10"
+
+runs:
+  using: composite
+  steps:
+    # workflow_call inputs cannot be typed as `choice`, so the enumeration is
+    # enforced here: an unknown value would otherwise skip both the pnpm setup
+    # and the install step and fail later with a confusing error.
+    - name: Validate the package manager
+      shell: bash
+      env:
+        PACKAGE_MANAGER: ${{ inputs.package-manager }}
+      run: |
+        case "${PACKAGE_MANAGER}" in
+          npm | pnpm) ;;
+          *)
+            echo "::error::package-manager must be 'npm' or 'pnpm', got '${PACKAGE_MANAGER}'"
+            exit 1
+            ;;
+        esac
+
+    # Must run before setup-node: setup-node resolves the pnpm store path only
+    # when pnpm is already on the PATH. run_install is disabled because the
+    # install step below is the one that honours working-directory.
+    - name: Set up pnpm
+      if: inputs.package-manager == 'pnpm'
+      uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+      with:
+        version: ${{ inputs.pnpm-version }}
+        run_install: false
+
+    - name: Set up Node.js
+      uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+      with:
+        node-version: ${{ inputs.node-version }}
+        cache: ${{ inputs.package-manager }}
+
+    - name: Install dependencies (npm)
+      if: inputs.package-manager == 'npm'
+      shell: bash
+      run: npm ci
+      working-directory: ${{ inputs.working-directory }}
+
+    - name: Install dependencies (pnpm)
+      if: inputs.package-manager == 'pnpm'
+      shell: bash
+      run: pnpm install --frozen-lockfile
+      working-directory: ${{ inputs.working-directory }}

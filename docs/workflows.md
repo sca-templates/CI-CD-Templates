@@ -19,6 +19,12 @@ All shared workflows live flat in `.github/workflows/` (GitHub does not support 
 | Node TypeScript | `stack-node-ts.yml` | TypeScript: install, lint, test, build; optional publish |
 | Nest | `stack-nest.yml` | NestJS: install, lint, format, test, build; optional publish |
 
+### Composite actions
+
+| Action | File | Description |
+|---|---|---|
+| Setup Node project | `setup-node-project` | Install the package manager (npm or pnpm), set up Node.js and install dependencies — the single setup step every `stack-*` job uses |
+
 > **Local linting, not CI:** markdown, YAML, shell and actionlint checks moved to
 > consumer-side **pre-commit** hooks. This repo enforces its own structure
 > invariants locally via `scripts/test-templates.sh` (pre-commit hook
@@ -278,7 +284,44 @@ jobs:
       node-version: "22"
 ```
 
-`stack-node-js.yml` covers plain JavaScript and Express; `stack-node-ts.yml` adds a build step for TypeScript projects; `stack-nest.yml` adds formatter and build checks for NestJS. The three use the **same fixed commands** (`npm ci`, `npm run lint`, `npm run format:check`, `npm run test:ci`, `npm run build`) toggled by booleans — there are no free-form `*-command` inputs. All accept `working-directory` for monorepos and an optional `publish` job (`run-publish`, `image`, `publish-tag`) that builds and pushes the Docker image to GHCR.
+`stack-node-js.yml` covers plain JavaScript and Express; `stack-node-ts.yml` adds a build step for TypeScript projects; `stack-nest.yml` adds formatter and build checks for NestJS. The three use the **same fixed project scripts** (`npm run lint`, `npm run format:check`, `npm run test:ci`, `npm run build`) toggled by booleans — there are no free-form `*-command` inputs. All accept `working-directory` for monorepos and an optional `publish` job (`run-publish`, `image`, `publish-tag`) that builds and pushes the Docker image to GHCR.
+
+#### Package manager
+
+Each job delegates toolchain setup and dependency installation to the
+[`setup-node-project`](#composite-actions) composite action, selected by the
+`package-manager` input (`npm`, the default, or `pnpm`):
+
+| `package-manager` | Installed | Dependencies |
+|---|---|---|
+| `npm` (default) | `actions/setup-node` | `npm ci` |
+| `pnpm` | `pnpm/action-setup` + `actions/setup-node` | `pnpm install --frozen-lockfile` |
+
+```yaml
+jobs:
+  test:
+    uses: sca-templates/CI-CD-Templates/.github/workflows/stack-node-ts.yml@main
+    with:
+      package-manager: pnpm
+      pnpm-version: "10.18.0"
+```
+
+The **script commands stay `npm run …`** in both cases: they resolve binaries
+from `node_modules/.bin`, which pnpm populates just as npm does, so a pnpm
+project needs no `package.json` changes. What the input changes is which
+package manager installs the tree and which lockfile is enforced — a pnpm
+project's `pnpm-lock.yaml` is what `--frozen-lockfile` checks.
+
+> **`pnpm-version` is not read from `package.json`.** `pnpm/action-setup` v6 can
+> omit its `version` only when `packageManager` declares pnpm v11 or newer;
+> below that the version must be explicit. Pass it explicitly (or keep the
+> default in sync with your `packageManager` field) rather than letting CI and
+> developer machines drift.
+
+Both package managers must have their lockfile at the **repository root** —
+that is where `actions/setup-node` looks for the dependency hash, and it is
+where npm and pnpm workspaces keep it. A sub-directory lockfile in a
+non-workspace layout is not supported.
 
 > **Migration:** `stack-node.yml` was replaced by `stack-node-js.yml` and `stack-node-ts.yml`. If you called `stack-node` with custom `*-command` inputs, switch to the matching template and align your `package.json` scripts with the fixed commands above.
 
@@ -293,4 +336,6 @@ jobs:
 
 Reusable workflows (`shared-*`, `stack-*`) must be callable from other repositories. A dispatch failure that completes instantly with **zero jobs** and the message "This run likely failed because of a workflow file issue." (no check run, no log) is the signature of the **concurrency group collision**: the caller and the called workflow declare the **same** top-level `concurrency.group` (e.g. `auto-label-${{ github.head_ref || github.ref }}` on both sides). GitHub rejects the re-entrant group at dispatch.
 
-Rule: a reusable workflow's `concurrency.group` must be distinct from caller conventions — prefix it (`shared-auto-label-…`) or drop `concurrency` from the called workflow entirely. Composites under `.github/actions/` are for **direct step use in a consumer's own workflow** — see [docs/usage.md](usage.md#referencing-composite-actions).
+Rule: a reusable workflow's `concurrency.group` must be distinct from caller conventions — prefix it (`shared-auto-label-…`) or drop `concurrency` from the called workflow entirely.
+
+Composites under `.github/actions/` serve two callers. In-repo, a shared or stack workflow reaches one by relative path (`uses: ./.github/actions/setup-node-project`) so it travels with the ref the caller pinned. From outside, a consumer's own workflow uses the fully-qualified path at a pinned SHA — see [docs/usage.md](usage.md#referencing-composite-actions).

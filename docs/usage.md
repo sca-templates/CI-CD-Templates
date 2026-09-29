@@ -63,6 +63,27 @@ steps:
     run: gh api "/repos/${{ github.repository }}/rulesets" --jq '.[].name'
 ```
 
+`setup-node-project` replaces the checkout-adjacent `setup-node` + install pair that most consumer workflows carry. It installs the package manager before Node.js — `actions/setup-node` can only resolve the pnpm store path once pnpm is on `PATH` — and runs the install in the directory you name:
+
+```yaml
+steps:
+  - uses: actions/checkout@v5
+
+  - name: Set up the project
+    uses: sca-templates/CI-CD-Templates/.github/actions/setup-node-project@main
+    with:
+      node-version: "22"
+      working-directory: "services/api"
+      package-manager: pnpm
+      pnpm-version: "10.18.0"
+
+  - run: npm run build
+    working-directory: services/api
+```
+
+The stock `stack-*` templates call this same action by relative path, so a
+consumer only needs it directly when writing a step the templates do not cover.
+
 ## Node, TypeScript and Nest stack workflows
 
 Technology-specific CI for application repos. Pick the template for your stack — `stack-node-js` (JavaScript), `stack-node-ts` (TypeScript, adds a build step) or `stack-nest` (NestJS, adds format and build checks):
@@ -80,7 +101,38 @@ jobs:
       working-directory: "services/api"
 ```
 
-All three templates use the **same fixed commands** (`npm ci`, `npm run lint`, `npm run format:check`, `npm run test:ci`, `npm run build`) toggled by booleans. There are no free-form command inputs.
+All three templates run the **same fixed project scripts** (`npm run lint`, `npm run format:check`, `npm run test:ci`, `npm run build`) toggled by booleans. There are no free-form command inputs.
+
+`npm run …` is deliberate and package-manager agnostic: npm puts every dependency's `bin` on `PATH` via `node_modules/.bin`, and pnpm does the same. A pnpm consumer keeps its scripts untouched and only changes how CI installs the tree.
+
+### npm or pnpm
+
+`package-manager` selects the installer used by every job of the template:
+
+| `package-manager` | Installed | Dependencies | Lockfile |
+|---|---|---|---|
+| `npm` (default) | `actions/setup-node` | `npm ci` | `package-lock.json` |
+| `pnpm` | `pnpm/action-setup` + `actions/setup-node` | `pnpm install --frozen-lockfile` | `pnpm-lock.yaml` |
+
+```yaml
+# .github/workflows/ci.yml in a pnpm consumer repo
+jobs:
+  stack:
+    uses: sca-templates/CI-CD-Templates/.github/workflows/stack-node-ts.yml@main
+    with:
+      package-manager: pnpm
+      pnpm-version: "10.18.0"
+```
+
+Keep `pnpm-version` in sync with the `packageManager` field in `package.json`
+(`"packageManager": "pnpm@10.18.0"`). It has to be passed explicitly: CI gets
+its version from the input, not from `package.json`. Only pnpm **v11+** can be
+omitted, where `pnpm/action-setup` reads `packageManager` itself.
+
+The lockfile must sit at the repository root — that is where
+`actions/setup-node` looks for the dependency hash used as the cache key, and
+where npm and pnpm both place a workspace's lockfile. `working-directory` points
+at the `package.json` to install from, not at a relocated lockfile.
 
 Available inputs:
 
@@ -88,6 +140,8 @@ Available inputs:
 |---|---|---|
 | `node-version` | `22` | Node.js version |
 | `working-directory` | `.` | Directory containing `package.json` (monorepos) |
+| `package-manager` | `npm` | Package manager: `npm` or `pnpm` |
+| `pnpm-version` | `10` | pnpm version to install when `package-manager` is `pnpm` |
 | `run-lint` | `true` | Run `npm run lint` |
 | `run-format` | node-ts: `false`; nest: `true` | Run `npm run format:check` |
 | `run-test` | `true` | Run `npm run test:ci` |
