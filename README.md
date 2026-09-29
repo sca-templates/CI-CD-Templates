@@ -45,6 +45,7 @@ Centralized, reusable CI/CD templates for the [sca-templates](https://github.com
 |---|---|---|
 | ArgoCD App Sync | `argocd-app-sync` | Sync an ArgoCD Application to a revision via the API with a scoped token |
 | Mint App Token | `mint-app-token` | Issue a GitHub App installation token for automation git writes |
+| Setup Node Project | `setup-node-project` | Install npm or pnpm, set up Node.js and install dependencies |
 | Notify Release | `notify-release` | Post release summaries to Slack or Discord |
 
 ### Rulesets
