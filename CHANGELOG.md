@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.3.1](https://github.com/sca-templates/CI-CD-Templates/compare/v3.3.0...v3.3.1) (2026-09-29)
+
+
+### Bug Fixes
+
+* **workflows:** reference local actions with full cross-repo paths ([#61](https://github.com/sca-templates/CI-CD-Templates/issues/61)) ([98af76b](https://github.com/sca-templates/CI-CD-Templates/commit/98af76b03c8461062c5760fa2cdd0e7422fa5835))
+
 ## [3.3.0](https://github.com/sca-templates/CI-CD-Templates/compare/v3.2.0...v3.3.0) (2026-09-29)
 
 
