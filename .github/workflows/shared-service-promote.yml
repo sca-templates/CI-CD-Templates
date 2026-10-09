@@ -1,7 +1,7 @@
 ---
 name: "Shared: Service Promote"
 
-# Action references below are full cross-repo refs pinned to v3.3.0, deliberately
+# Action references below are full cross-repo refs pinned to v3.3.1, deliberately
 # NOT `uses: ./…`. Inside a reusable workflow a `./` path resolves against the
 # *calling* repository, so it only resolves for callers inside CI-CD-Templates and
 # fails everywhere else with "Can't find 'action.yml' … under <checkout>/.github/actions/…".
@@ -123,7 +123,7 @@ jobs:
 
       - name: Sync ArgoCD app
         if: ${{ !inputs.dry-run }}
-        uses: sca-templates/CI-CD-Templates/.github/actions/argocd-app-sync@144996d6e0870c6820ac02a7835faef217f9c2d4 # v3.3.0
+        uses: sca-templates/CI-CD-Templates/.github/actions/argocd-app-sync@47b9f3cb040adb8095585511a78c0f3a15079489 # v3.3.1
         with:
           server: ${{ secrets.ARGOCD_SERVER || vars.ARGOCD_SERVER }}
           token: ${{ secrets.ARGOCD_TOKEN }}

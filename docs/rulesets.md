@@ -14,12 +14,6 @@ performed with a scoped ArgoCD API token, not a ref move — see
 [service-release-model.md](service-release-model.md). The retired
 `service-deploy-refs.json` ruleset has been removed from this repository.
 
-## Node.js
-
-| Ruleset | File | Target | Description |
-|---|---|---|---|
-| PR Quality | `nodejs-pr-quality.json` | `main` branch | Require lint + typecheck + test CI checks |
-
 ## Required status checks for reusable workflows
 
 When a required status check covers a job that **calls a reusable workflow**

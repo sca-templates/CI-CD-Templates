@@ -38,17 +38,35 @@ for f in "$WF"/shared-*.yml; do
   grep -rqF "workflows/$name" "$WF"/self-*.yml || fail_msg "$name has no self-* workflow calling it"
 done
 
-# No mutable action references: @latest, or self-refs not pinned to a full SHA.
+# No mutable action references: @latest.
 if grep -rn "uses:.*@latest" "$WF" >/dev/null 2>&1; then
   fail_msg "found @latest action references"
 fi
-while IFS= read -r ref; do
-  [ -n "$ref" ] || continue
-  sha="${ref##*@}"
-  if [ "${#sha}" -ne 40 ] || ! printf '%s' "$sha" | grep -qE '^[0-9a-f]{40}$'; then
-    fail_msg "unpinned self-reference: ${ref}"
+
+# Internal cross-repo references (actions) must all pin one and the same release
+# SHA, carry the version in a trailing comment, and never float. A single SHA
+# keeps the catalog coherent: a release either is internally consistent or is not.
+internal_refs="$(grep -rhoE 'CI-CD-Templates/\.github/(actions|workflows)/[^@[:space:]]+@[0-9a-zA-Z._/-]+' "$WF" || true)"
+if [ -n "$internal_refs" ]; then
+  while IFS= read -r ref; do
+    [ -n "$ref" ] || continue
+    sha="${ref##*@}"
+    if [ "${#sha}" -ne 40 ] || ! printf '%s' "$sha" | grep -qE '^[0-9a-f]{40}$'; then
+      fail_msg "unpinned internal reference: ${ref}"
+    fi
+  done <<< "$internal_refs"
+
+  unique_shas="$(printf '%s\n' "$internal_refs" | awk -F@ '{print $NF}' | grep -E '^[0-9a-f]{40}$' | sort -u || true)"
+  if [ "$(printf '%s\n' "$unique_shas" | grep -c .)" -ne 1 ]; then
+    fail_msg "internal references must all pin the same SHA; found: $(printf '%s' "$unique_shas" | tr '\n' ' ')"
   fi
-done < <(grep -rhoE 'CI-CD-Templates/\.github/(actions|workflows)/[^@[:space:]]+@[0-9a-zA-Z._/-]+' "$WF" || true)
+
+  while IFS= read -r line; do
+    [ -n "$line" ] || continue
+    printf '%s' "$line" | grep -qE '# v[0-9]+\.[0-9]+\.[0-9]+' || \
+      fail_msg "internal reference missing '# vX.Y.Z' comment: ${line}"
+  done < <(grep -rhE 'CI-CD-Templates/\.github/(actions|workflows)/[^@[:space:]]+@[0-9a-f]{40}' "$WF" || true)
+fi
 
 # No run-step that starts with an interpolated expression (command injection).
 if grep -rnE '^[[:space:]]*run:[[:space:]]*[$][{]{' "$WF" >/dev/null 2>&1; then
