@@ -154,6 +154,7 @@ jobs:
           mkdir -p "$RUNNER_TEMP/bin"
           install -m 0755 /tmp/actionlint "$RUNNER_TEMP/bin/actionlint"
           echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
+          export PATH="$RUNNER_TEMP/bin:$PATH"
           actionlint -version
 
       - name: Lint GitHub Actions workflows
