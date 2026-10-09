@@ -6,18 +6,20 @@ All shared workflows live flat in `.github/workflows/` (GitHub does not support 
 
 | Workflow | File | Description |
 |---|---|---|
-| Security Scan | `shared-security-scan.yml` | gitleaks secret scanning + osv-scanner dependency vulnerabilities |
-| Release Flow | `shared-release-flow.yml` | release-please + signed tags + optional release-PR auto-merge |
-| QA Lock Check | `shared-qa-lock-check.yml` | Block merges while release PR open |
+| Security Scan | `shared-security-scan.yml` | gitleaks secret scanning + osv-scanner dependency vulnerabilities + optional checkov IaC scan |
+| Validate | `shared-validate.yml` | Repository hygiene: markdownlint + link check, yamllint + `bash -n`, actionlint |
+| Release Flow | `shared-release-flow.yml` | release-please + signed tags + optional release-PR auto-merge + `latest` hold policy |
+| QA Lock Check | `shared-qa-lock-check.yml` | Block merges while release PR open (bot PRs exempt) |
 | CodeQL | `shared-codeql.yml` | CodeQL static analysis (GitHub Actions) |
 | Service Promote | `shared-service-promote.yml` | Sync the service's dev/qa ArgoCD Application to a selected branch/tag/commit via the ArgoCD API — no PR and no `deploy/*` ref; QA pauses for human approval when Required reviewers are configured |
 | Adopt Prod | `shared-adopt-prod.yml` | Pin a release tag as the version running in prod (GitOps registry, PR or direct commit) |
-| Enforce Latest | `shared-enforce-latest.yml` | Correct GitHub `latest` release to the version actually deployed in prod |
+| Enforce Latest | `shared-enforce-latest.yml` | Correct GitHub `latest` release to the version actually deployed in prod (optional signed-tag check and forward-only guard) |
 | Auto Label | `shared-auto-label.yml` | Assign labels to PRs from type, changed files, and stack (idempotent, add-only) |
 | Changelog Notify | `shared-changelog-notify.yml` | Post release summaries to Slack or Discord; skips silently when no webhook |
 | Node.js | `stack-node-js.yml` | JavaScript/Express: install, lint, test; optional publish |
 | Node TypeScript | `stack-node-ts.yml` | TypeScript: install, lint, test, build; optional publish |
 | Nest | `stack-nest.yml` | NestJS: install, lint, format, test, build; optional publish |
+| NPM Publish | `stack-npm-publish.yml` | Publish a package to npm from a tag (pnpm or npm), with tag↔manifest version check and dry-run |
 
 ### Composite actions
 
@@ -25,10 +27,11 @@ All shared workflows live flat in `.github/workflows/` (GitHub does not support 
 |---|---|---|
 | Setup Node project | `setup-node-project` | Install the package manager (npm or pnpm), set up Node.js and install dependencies — the single setup step every `stack-*` job uses |
 
-> **Local linting, not CI:** markdown, YAML, shell and actionlint checks moved to
-> consumer-side **pre-commit** hooks. This repo enforces its own structure
-> invariants locally via `scripts/test-templates.sh` (pre-commit hook
-> `template-structure`) — see `.pre-commit-config.yaml`.
+> **Local linting vs CI:** `shared-validate.yml` ships markdown, YAML, shell and
+> actionlint checks for consumers that want them in CI; the same checks also run
+> here as **pre-commit** hooks. This repo enforces its own structure invariants
+> via `scripts/test-templates.sh` (pre-commit hook `template-structure`) — see
+> `.pre-commit-config.yaml`.
 
 ## Usage
 
@@ -54,13 +57,14 @@ jobs:
 
 ### Security Scan
 
-The single entry point for every repo's security checks. Two fast, no-secret
-jobs that can gate every PR:
+The single entry point for every repo's security checks. Fast, no-secret jobs
+that can gate every PR:
 
 | Job | Tool | Behavior |
 |---|---|---|
 | Secrets | gitleaks | Fails on findings; SARIF to code scanning (non-PR events only) |
 | Dependency Vulnerabilities | osv-scanner | Fails on findings |
+| IaC posture | checkov | Optional (`iac: true`); fails on findings, honors a baseline file |
 
 Dependency advisory PRs are left to **Dependabot** (native, zero Actions
 minutes). SAST surfaces that used to live here (SonarQube, Semgrep,
@@ -73,6 +77,8 @@ jobs:
     with:
       gitleaks: true
       osv-scan: true
+      iac: true
+      iac-framework: kubernetes
 ```
 
 Inputs:
@@ -81,6 +87,59 @@ Inputs:
 |---|---|---|
 | `gitleaks` | `true` | Run gitleaks secret scanning |
 | `osv-scan` | `true` | Run osv-scanner dependency scan |
+| `iac` | `false` | Run checkov infrastructure-as-code scan |
+| `iac-framework` | `kubernetes` | checkov `--framework` value (`kubernetes`, `terraform`, …) |
+| `iac-directory` | `.` | Directory scanned by checkov |
+| `iac-baseline` | `.github/checkov-baseline.json` | Baseline file, applied only when present |
+| `iac-requirements` | `.github/requirements.txt` | Hash-pinned requirements file used to install checkov |
+
+### Validate (repository hygiene)
+
+Repository-hygiene checks that were previously duplicated in each consumer's
+`validate` workflow. Three independent, opt-in jobs:
+
+| Job | Tools | Default |
+|---|---|---|
+| Markdown | `markdownlint-cli2` + `markdown-link-check` | `markdown: true`, `markdown-links: true` |
+| YAML and Shell | `yamllint` + `bash -n` | `yaml: true` |
+| Workflow lint | `actionlint` | `actionlint: true` |
+
+```yaml
+jobs:
+  validate:
+    uses: sca-templates/CI-CD-Templates/.github/workflows/shared-validate.yml@main
+    with:
+      markdown-link-paths: "README.md docs"
+      shell-glob: "bootstrap/*.sh"
+```
+
+Inputs: `markdown`, `markdown-glob`, `markdown-links`, `markdown-link-config`,
+`markdown-link-paths`, `yaml`, `yaml-config`, `yaml-requirements`, `shell-glob`,
+`actionlint`, `node-version`. `yamllint` is installed from a hash-pinned
+requirements file (`--require-hashes`), so the consumer ships
+`.github/requirements-yamllint.txt`. Technology-specific manifest validation
+(kubeconform, helm template/lint, kube-linter) is deliberately **not** part of
+this reusable — it stays in the consumer.
+
+### Release Flow (`latest` policy)
+
+release-please opens a release PR and, on merge, creates the tag and GitHub
+Release; `sign-tag` re-signs the tag with the release-bot GPG key. Two optional
+policies:
+
+- `latest-policy: claim` (default) — the new release claims GitHub `latest`, as
+  release-please does today.
+- `latest-policy: hold` — the workflow publishes the release but restores the
+  previous `latest` pointer, so only a separate promote workflow (e.g.
+  `shared-adopt-prod` + `shared-enforce-latest`) ever moves it forward. Enabling
+  `hold` requires a release-bot public key in the caller repo (`latest-gpg-key`,
+  default `.github/release-bot-gpg.pub`); the tag signature is verified before
+  the pointer is touched.
+
+Because `make_latest=false` stores no pointer (the API falls back to the newest
+release), `hold` publishes the release and then re-asserts the previous pointer
+with a single PATCH, and reads the result back. A re-run is safe: the snapshot
+excludes the tag this push cut.
 
 ### Service Promote (ArgoCD sync)
 
@@ -217,6 +276,12 @@ jobs:
 
 Outputs: `release-tag`, `changed`, `current-latest`.
 
+Optional hardening: `verify-signed-tag: true` imports the release-bot GPG public
+key (`gpg-public-key`, default `.github/release-bot-gpg.pub`) and runs
+`git tag -v` on the deployed tag before promoting it; `forward-only: true`
+refuses to move `latest` backwards when the current `latest` is newer than the
+deployed tag.
+
 In the per-service flow this runs **after** the prod `Sync` has applied the
 version, via [docs/examples/deploy-prod.yml](examples/deploy-prod.yml)
 (`action: mark-latest`). See [service-release-model.md](service-release-model.md)
@@ -324,6 +389,46 @@ where npm and pnpm workspaces keep it. A sub-directory lockfile in a
 non-workspace layout is not supported.
 
 > **Migration:** `stack-node.yml` was replaced by `stack-node-js.yml` and `stack-node-ts.yml`. If you called `stack-node` with custom `*-command` inputs, switch to the matching template and align your `package.json` scripts with the fixed commands above.
+
+### NPM Publish
+
+Publishes a package to npm from a tag. A reusable workflow cannot itself trigger
+on `release` / `workflow_dispatch`, so the consumer keeps a thin caller that
+maps the event and passes `tag` / `dry-run`:
+
+```yaml
+# .github/workflows/publish.yml in the consumer repo
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        type: string
+      dry-run:
+        type: boolean
+        default: false
+
+jobs:
+  publish:
+    uses: sca-templates/CI-CD-Templates/.github/workflows/stack-npm-publish.yml@main
+    with:
+      tag: ${{ inputs.tag || github.event.release.tag_name }}
+      dry-run: ${{ inputs.dry-run || false }}
+    secrets:
+      NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+```
+
+The job resolves the tag (input, else the release event), checks it out at that
+ref, installs with the selected `package-manager` (`pnpm`/`npm`), verifies the
+tag matches the `package.json` version (`verify-tag-version`, default `true`),
+and publishes with `--access`. `dry-run: true` builds the tarball without
+contacting npm's write API, and an empty `NPM_TOKEN` **fails fast** with an
+explicit message rather than surfacing as a 401 mid-publish. Publishes share a
+single `npm-publish` concurrency group, so two never overlap on one runner.
+
+Inputs: `tag`, `dry-run`, `node-version`, `package-manager`, `pnpm-version`,
+`working-directory`, `registry-url`, `access`, `verify-tag-version`.
 
 ## Adding a new technology
 

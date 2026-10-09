@@ -12,6 +12,26 @@ on:
         description: "Run osv-scanner dependency vulnerability scan"
         type: boolean
         default: true
+      iac:
+        description: "Run checkov infrastructure-as-code posture scan"
+        type: boolean
+        default: false
+      iac-framework:
+        description: "checkov --framework value (e.g. kubernetes, terraform)"
+        type: string
+        default: "kubernetes"
+      iac-directory:
+        description: "Directory scanned by checkov"
+        type: string
+        default: "."
+      iac-baseline:
+        description: "Path to the checkov baseline file, relative to the repo root"
+        type: string
+        default: ".github/checkov-baseline.json"
+      iac-requirements:
+        description: "Path to a hash-pinned requirements file used to install checkov"
+        type: string
+        default: ".github/requirements.txt"
 
 permissions:
   contents: read
@@ -85,3 +105,37 @@ jobs:
             exit 0
           fi
           exit "${rc:-0}"
+
+  iac:
+    name: IaC posture (checkov)
+    if: ${{ inputs.iac }}
+    runs-on: ${{ vars.RUNS_ON || 'ubuntu-latest' }}
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Setup Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.x"
+
+      # The consumer ships a fully hash-pinned closure, so the install trusts the
+      # reviewed lockfile verbatim instead of resolving declared metadata.
+      - name: Install checkov (pinned, verified)
+        env:
+          REQUIREMENTS: ${{ inputs.iac-requirements }}
+        run: python -m pip install --disable-pip-version-check --no-deps --require-hashes -r "${REQUIREMENTS}"
+
+      - name: Checkov scan
+        env:
+          DIRECTORY: ${{ inputs.iac-directory }}
+          FRAMEWORK: ${{ inputs.iac-framework }}
+          BASELINE: ${{ inputs.iac-baseline }}
+        run: |
+          set -euo pipefail
+          args=(--framework "${FRAMEWORK}" --download-external-modules false --quiet --compact)
+          if [ -f "${BASELINE}" ]; then
+            args+=(--baseline "${BASELINE}")
+          fi
+          checkov -d "${DIRECTORY}" "${args[@]}"

@@ -44,6 +44,18 @@ on:
         description: "Report the correction without changing any release"
         type: boolean
         default: false
+      verify-signed-tag:
+        description: "Verify the deployed tag carries a valid GPG signature before promoting it"
+        type: boolean
+        default: false
+      gpg-public-key:
+        description: "Path to the trusted release-bot GPG public key, relative to the caller repo"
+        type: string
+        default: ".github/release-bot-gpg.pub"
+      forward-only:
+        description: "Refuse to move the latest release backwards to an older deployed tag"
+        type: boolean
+        default: false
     secrets:
       APP_ID:
         description: "Deploy-bot GitHub App ID (contents: write on the service and GitOps repos)"
@@ -167,6 +179,31 @@ jobs:
           fi
           echo "release-tag=$TAG" >> "$GITHUB_OUTPUT"
 
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        if: ${{ inputs.verify-signed-tag }}
+        with:
+          fetch-depth: 0
+          token: ${{ steps.app-token.outputs.token }}
+
+      - name: Verify the deployed tag is signed
+        if: ${{ inputs.verify-signed-tag }}
+        shell: bash
+        env:
+          tag: ${{ steps.resolve.outputs.release-tag }}
+          pubkey: ${{ inputs.gpg-public-key }}
+        run: |
+          set -euo pipefail
+          if [ ! -f "$pubkey" ]; then
+            echo "::error::release-bot GPG public key not found at $pubkey"
+            exit 1
+          fi
+          export GNUPGHOME
+          GNUPGHOME="$(mktemp -d)"
+          gpg --batch --quiet --import "$pubkey"
+          git fetch --quiet --force origin "refs/tags/${tag}:refs/tags/${tag}"
+          git tag -v "$tag"
+          echo "Tag ${tag} is signed by a trusted key"
+
       - name: Mark deployed release as latest
         id: mark
         shell: bash
@@ -175,6 +212,7 @@ jobs:
           tag: ${{ steps.resolve.outputs.release-tag }}
           harmonize: ${{ inputs.harmonize-releases }}
           dry_run: ${{ inputs.dry-run }}
+          forward_only: ${{ inputs.forward-only }}
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
         run: |
           set -euo pipefail
@@ -212,6 +250,11 @@ jobs:
           RELEASES="$(gh release list --repo "$repo" --limit 100 --json tagName,isDraft,isPrerelease,isLatest)"
           CURRENT="$(printf '%s' "$RELEASES" | jq -r '.[] | select(.isLatest == true) | .tagName' | head -n1)"
           echo "current-latest=$CURRENT" >> "$GITHUB_OUTPUT"
+
+          if [ "$forward_only" = "true" ] && [ -n "$CURRENT" ] && ver_gt "$CURRENT" "$tag"; then
+            echo "::error::forward-only: latest ($CURRENT) is newer than the deployed tag ($tag); refusing to move it backwards"
+            exit 1
+          fi
 
           DEMOTE=()
           RESTORE=()

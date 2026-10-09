@@ -21,13 +21,14 @@ Centralized, reusable CI/CD templates for the [sca-templates](https://github.com
 
 | Workflow | File | Description |
 |---|---|---|
-| Security Scan | `shared-security-scan.yml` | gitleaks secret scanning + osv-scanner dependency vulnerabilities |
-| Release Flow | `shared-release-flow.yml` | release-please + signed tags, optional release-PR auto-merge |
-| QA Lock Check | `shared-qa-lock-check.yml` | Block merges while release PR open |
+| Security Scan | `shared-security-scan.yml` | gitleaks secret scanning + osv-scanner dependency vulnerabilities + optional checkov IaC scan |
+| Validate | `shared-validate.yml` | markdownlint + link check, yamllint + `bash -n`, actionlint |
+| Release Flow | `shared-release-flow.yml` | release-please + signed tags, optional release-PR auto-merge, `latest` hold policy |
+| QA Lock Check | `shared-qa-lock-check.yml` | Block merges while release PR open (bot PRs exempt) |
 | CodeQL | `shared-codeql.yml` | CodeQL static analysis (GitHub Actions) |
 | Service Promote | `shared-service-promote.yml` | Sync the `dev`/`qa` ArgoCD Application to a selected revision (ArgoCD API, no git refs) |
 | Adopt Prod | `shared-adopt-prod.yml` | Pin the running release tag as the prod version in the GitOps registry |
-| Enforce Latest | `shared-enforce-latest.yml` | Correct GitHub `latest` to the version actually running in prod |
+| Enforce Latest | `shared-enforce-latest.yml` | Correct GitHub `latest` to the version actually running in prod (optional signed-tag check and forward-only guard) |
 | Auto Label | `shared-auto-label.yml` | Assign labels to PRs from type, changed files, and stack (idempotent, add-only) |
 | Changelog Notify | `shared-changelog-notify.yml` | Post release summaries to Slack or Discord; skips silently when no webhook |
 
@@ -38,6 +39,7 @@ Centralized, reusable CI/CD templates for the [sca-templates](https://github.com
 | Node.js | `stack-node-js.yml` | JavaScript/Express: install, lint, test; optional publish |
 | Node TypeScript | `stack-node-ts.yml` | TypeScript: install, lint, test, build; optional publish |
 | Nest | `stack-nest.yml` | NestJS: install, lint, format, test, build; optional publish |
+| NPM Publish | `stack-npm-publish.yml` | Publish a package to npm from a tag (pnpm or npm), with version check and dry-run |
 
 ### Composite actions
 
@@ -72,9 +74,10 @@ jobs:
       APP_PRIVATE_KEY: ${{ secrets.APP_PRIVATE_KEY }}
 ```
 
-> Local linting (markdown, YAML, shell, actionlint) is expected via pre-commit
-> on each consumer; the shared catalog only ships merge-relevant gates that
-> need CI. See [docs/usage.md](docs/usage.md).
+> Linting (markdown, YAML, shell, actionlint) is available as
+> `shared-validate.yml` for CI, or as per-consumer pre-commit hooks. See
+> [docs/usage.md](docs/usage.md) and
+> [docs/workflows.md](docs/workflows.md#validate-repository-hygiene).
 
 ```yaml
 # .github/workflows/promote.yml in your service repo

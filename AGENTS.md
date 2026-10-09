@@ -38,13 +38,14 @@ docs/                 # Catalog and usage docs
 
 Technologies are identified by prefix in filenames:
 
-- `shared-*` → global (all repos): `shared-security-scan`, `shared-release-flow`, `shared-qa-lock-check`, `shared-codeql`, `shared-service-promote`, `shared-adopt-prod`, `shared-enforce-latest`
-- `stack-node` → Node.js/Express (install, lint, test)
+- `shared-*` → global (all repos): `shared-security-scan`, `shared-validate`, `shared-release-flow`, `shared-qa-lock-check`, `shared-codeql`, `shared-service-promote`, `shared-adopt-prod`, `shared-enforce-latest`
+- `stack-node` → Node.js/Express (install, lint, test, publish)
 - `stack-nest` → NestJS (install, lint, format, test, build)
 - Future: `stack-go-*`, `stack-python-*`, etc.
 
-> Local linting (markdown, YAML, shell, actionlint) is consumer-side via
-> pre-commit; no shared workflow ships these checks.
+> `shared-validate.yml` offers markdown, YAML, shell and actionlint checks for
+> consumers that want them in CI; the same checks also run here as pre-commit
+> hooks.
 
 ## How consumers use this
 

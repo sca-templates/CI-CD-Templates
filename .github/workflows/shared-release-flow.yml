@@ -20,6 +20,14 @@ on:
         description: "Enable auto-merge (squash) on the release PR so it merges once checks and reviews pass"
         type: boolean
         default: false
+      latest-policy:
+        description: "How the GitHub 'latest' pointer is treated: 'claim' lets the new release claim it; 'hold' publishes without claiming and restores the previous pointer, so only a separate promote workflow ever moves it forward"
+        type: string
+        default: "claim"
+      latest-gpg-key:
+        description: "Path to the trusted release-bot GPG public key, relative to the caller repo (used by the 'hold' policy)"
+        type: string
+        default: ".github/release-bot-gpg.pub"
     secrets:
       APP_ID:
         description: "GitHub App ID for release automation (needs contents: write, pull-requests: write)"
@@ -146,3 +154,212 @@ jobs:
           else
             echo "::warning::could not enable auto-merge on release PR #$pr"
           fi
+
+  # The 'hold' policy keeps `latest` off the release this run just cut, so a
+  # separate promote workflow remains the only thing that moves the pointer.
+  # `make_latest=false` stores no pointer (the API then falls back to the newest
+  # release), so holding requires publishing the release and then re-asserting
+  # the previous pointer explicitly. Both jobs are inert under 'claim'.
+  capture:
+    name: Capture previous latest
+    needs: release
+    if: ${{ inputs.latest-policy == 'hold' && needs.release.outputs.releases_created == 'true' }}
+    runs-on: ${{ vars.RUNS_ON || 'ubuntu-latest' }}
+    permissions:
+      contents: read
+    outputs:
+      previous: ${{ steps.pick.outputs.previous }}
+    steps:
+      - name: Mint release-bot token
+        id: app-token
+        uses: sca-templates/CI-CD-Templates/.github/actions/mint-app-token@47b9f3cb040adb8095585511a78c0f3a15079489 # v3.3.1
+        with:
+          client-id: ${{ secrets.APP_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: ${{ github.event.repository.name }}
+
+      - name: Snapshot the latest release other than the one just cut
+        id: pick
+        env:
+          NEW_TAG: ${{ needs.release.outputs.tag_name }}
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: |
+          set -uo pipefail
+          # Never fatal: an empty snapshot is a legitimate first release, and
+          # `finalize` decides what to do when the hint is missing.
+          if ! RELEASES="$(gh release list --repo "${GITHUB_REPOSITORY}" --limit 100 \
+            --json tagName,isDraft,isPrerelease,publishedAt 2>&1)"; then
+            echo "::warning::could not list releases: ${RELEASES}"
+            echo "previous=" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          # Excluding the tag this push cut is what makes the snapshot correct on
+          # a re-run: whether the list is read before or after the release-please
+          # release exists, the answer is the release that was latest before it.
+          # Sorted by publishedAt rather than the derived isLatest field.
+          PREVIOUS="$(printf '%s' "$RELEASES" | jq -r --arg tag "$NEW_TAG" '
+            [ .[] | select(.isDraft == false and .isPrerelease == false and .tagName != $tag) ]
+            | sort_by(.publishedAt) | reverse | .[0].tagName // empty')"
+          if [ -z "$PREVIOUS" ]; then
+            echo "::notice::no published release besides ${NEW_TAG}; nothing to snapshot"
+          else
+            echo "::notice::previous latest: ${PREVIOUS}"
+          fi
+          echo "previous=${PREVIOUS}" >> "$GITHUB_OUTPUT"
+
+  finalize:
+    name: Finalize release (publish, hold off latest)
+    needs: [release, capture]
+    if: ${{ inputs.latest-policy == 'hold' && needs.release.outputs.releases_created == 'true' }}
+    runs-on: ${{ vars.RUNS_ON || 'ubuntu-latest' }}
+    permissions:
+      contents: read
+    steps:
+      - name: Mint release-bot token
+        id: app-token
+        uses: sca-templates/CI-CD-Templates/.github/actions/mint-app-token@47b9f3cb040adb8095585511a78c0f3a15079489 # v3.3.1
+        with:
+          client-id: ${{ secrets.APP_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: ${{ github.event.repository.name }}
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          token: ${{ steps.app-token.outputs.token }}
+          fetch-depth: 0
+
+      - name: Resolve the release cut by this push
+        id: resolve
+        env:
+          TAG: ${{ needs.release.outputs.tag_name }}
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: |
+          set -euo pipefail
+          if [ -z "$TAG" ]; then
+            echo "::notice::release-please reported no tag; nothing to finalize"
+            echo "tag=" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # The tag can still be a draft here (the shared sign-tag job normally
+          # publishes it), and GET /releases/tags/{tag} answers 404 for a draft,
+          # so the id is read off the collection, with a bounded retry because
+          # that list can lag a just-created release by a few hundred ms.
+          ID=""
+          for attempt in 1 2 3 4 5; do
+            ID="$(gh api "repos/${GITHUB_REPOSITORY}/releases?per_page=100" \
+              --jq "[.[] | select(.tag_name == \"${TAG}\")][0].id // empty")"
+            [ -n "$ID" ] && break
+            echo "::debug::no release entry for ${TAG} yet (attempt ${attempt})"
+            sleep 3
+          done
+          if [ -z "$ID" ]; then
+            echo "::error::tag ${TAG} has no release entry; cannot finalize"
+            exit 1
+          fi
+
+          # Read, never written: the badge stays exactly as release-please set it.
+          PRERELEASE="$(gh api "repos/${GITHUB_REPOSITORY}/releases?per_page=100" \
+            --jq "[.[] | select(.tag_name == \"${TAG}\")][0].prerelease")"
+          {
+            echo "tag=${TAG}"
+            echo "id=${ID}"
+            echo "prerelease=${PRERELEASE}"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Verify the release-bot signature on the tag
+        if: steps.resolve.outputs.tag != ''
+        env:
+          TAG: ${{ steps.resolve.outputs.tag }}
+          GPG_KEY: ${{ inputs.latest-gpg-key }}
+        run: |
+          set -euo pipefail
+          test "$(git cat-file -t "refs/tags/${TAG}")" = tag \
+            || { echo "::error::'${TAG}' is not an annotated tag; the sign-tag job did not run"; exit 1; }
+          if [ ! -f "${GPG_KEY}" ]; then
+            echo "::error::release-bot GPG public key not found at ${GPG_KEY}"
+            exit 1
+          fi
+          gpg --batch --import "${GPG_KEY}"
+          git tag -v "${TAG}" \
+            || { echo "::error::'${TAG}' is not signed by the release bot; refusing to finalize"; exit 1; }
+
+      - name: Publish the release, hold it off latest, restore the previous pointer
+        id: publish
+        if: steps.resolve.outputs.tag != ''
+        env:
+          TAG: ${{ steps.resolve.outputs.tag }}
+          ID: ${{ steps.resolve.outputs.id }}
+          PRERELEASE: ${{ steps.resolve.outputs.prerelease }}
+          PREVIOUS: ${{ needs.capture.outputs.previous }}
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: |
+          set -euo pipefail
+          RELEASES="repos/${GITHUB_REPOSITORY}/releases"
+
+          if [ "$PRERELEASE" = "true" ]; then
+            # "Drafts and prereleases cannot be set as latest" (REST docs), so a
+            # pre-release neither takes nor can be given the pointer.
+            gh api --method PATCH "${RELEASES}/${ID}" \
+              --input - <<< '{"draft": false}' >/dev/null
+            echo "::notice::${TAG} is a pre-release: published, latest pointer untouched"
+            echo "expect=" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # One PATCH, so the release never passes through a state where it is
+          # both public and latest; make_latest is a string enum and "false" is
+          # as close to "none" as the API offers.
+          gh api --method PATCH "${RELEASES}/${ID}" \
+            --input - <<< '{"draft": false, "make_latest": "false"}' >/dev/null
+          echo "::notice::${TAG} published and held off latest"
+
+          if [ -z "$PREVIOUS" ]; then
+            # Empty is legitimate only on the first release; if any other full
+            # release exists the capture failed and this is an error.
+            OTHERS="$(gh api "${RELEASES}?per_page=100" --jq \
+              "[.[] | select(.tag_name != \"${TAG}\" and .draft == false and .prerelease == false)] | length")"
+            if [ "$OTHERS" != "0" ]; then
+              echo "::error::no previous latest was captured, but ${OTHERS} published release(s) exist"
+              exit 1
+            fi
+            echo "::notice::${TAG} is the first release; there is no previous latest to restore"
+            echo "expect=${TAG}" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          PREVIOUS_ID="$(gh api "${RELEASES}?per_page=100" \
+            --jq "[.[] | select(.tag_name == \"${PREVIOUS}\")][0].id // empty")"
+          if [ -z "$PREVIOUS_ID" ]; then
+            echo "::error::captured previous latest ${PREVIOUS} has no release entry"
+            exit 1
+          fi
+
+          # The only write that actually moves the pointer: publishing the new
+          # release cleared the previous designation, so this runs every time.
+          gh api --method PATCH "${RELEASES}/${PREVIOUS_ID}" \
+            --input - <<< '{"make_latest": "true"}' >/dev/null
+          echo "::notice::${PREVIOUS} re-designated as latest"
+          echo "expect=${PREVIOUS}" >> "$GITHUB_OUTPUT"
+
+      - name: Verify where latest ended up
+        if: steps.resolve.outputs.tag != ''
+        env:
+          TAG: ${{ steps.resolve.outputs.tag }}
+          EXPECT: ${{ steps.publish.outputs.expect }}
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: |
+          set -euo pipefail
+          if [ -z "$EXPECT" ]; then
+            echo "::notice::${TAG} claims no latest expectation; nothing to verify"
+            exit 0
+          fi
+          # The writes above are not trusted; the state is read back.
+          LATEST="$(gh api "repos/${GITHUB_REPOSITORY}/releases/latest" --jq .tag_name)"
+          if [ "$LATEST" != "$EXPECT" ]; then
+            echo "::error::latest is ${LATEST}, expected ${EXPECT}; the release is public but the pointer is wrong"
+            exit 1
+          fi
+          echo "::notice::latest = ${LATEST}, as intended"
