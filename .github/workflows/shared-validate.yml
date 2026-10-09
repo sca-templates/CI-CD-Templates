@@ -151,7 +151,9 @@ jobs:
             -o /tmp/actionlint.tar.gz
           printf '%s  %s\n' "${ACTIONLINT_SHA256}" /tmp/actionlint.tar.gz | sha256sum -c -
           tar -xzf /tmp/actionlint.tar.gz -C /tmp actionlint
-          sudo install -m 0755 /tmp/actionlint /usr/local/bin/actionlint
+          mkdir -p "$RUNNER_TEMP/bin"
+          install -m 0755 /tmp/actionlint "$RUNNER_TEMP/bin/actionlint"
+          echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
           actionlint -version
 
       - name: Lint GitHub Actions workflows
