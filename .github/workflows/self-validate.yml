@@ -1,0 +1,27 @@
+---
+name: "Self: Validate"
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: self-validate-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    name: Validate
+    uses: ./.github/workflows/shared-validate.yml
+    with:
+      # The catalog lints YAML/shell locally via pre-commit (.yamllint.yaml
+      # ignores .github/workflows/), and it ships no hash-pinned yamllint
+      # requirements file. It exercises markdown + actionlint here; link
+      # checking is left to consumers that maintain the link config.
+      yaml: false
+      markdown-links: false

@@ -3,6 +3,11 @@ name: "Shared: QA Lock Check"
 
 on:
   workflow_call:
+    inputs:
+      exempt-bots:
+        description: "Pass when the PR was opened by a bot actor (dependabot, renovate, *[bot])"
+        type: boolean
+        default: true
 
 permissions:
   contents: read
@@ -18,7 +23,23 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
           CURRENT_BRANCH: ${{ github.head_ref || github.ref_name }}
+          EXEMPT_BOTS: ${{ inputs.exempt-bots }}
+          ACTOR: ${{ github.actor }}
         run: |
+          set -euo pipefail
+
+          # Bots cut their own PRs (dependency bumps, release-please) and cannot
+          # rebase behind an open release PR, so blocking them would deadlock the
+          # queue.
+          if [ "${EXEMPT_BOTS}" = "true" ]; then
+            case "${ACTOR}" in
+              *"[bot]"|dependabot*|renovate*)
+                echo "Actor ${ACTOR} is a bot — merge allowed."
+                exit 0
+                ;;
+            esac
+          fi
+
           RELEASE_PR=$(gh pr list \
             --repo "${GITHUB_REPOSITORY}" \
             --base "${DEFAULT_BRANCH}" \

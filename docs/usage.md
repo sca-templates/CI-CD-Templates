@@ -24,9 +24,10 @@ jobs:
     secrets: inherit
 ```
 
-> **Local linting belongs to pre-commit, not CI.** Markdown, YAML, shell and
-> actionlint checks are not shipped as a workflow; run them as hooks in each
-> consumer (`pre-commit`) so CI only carries merge-relevant gates.
+> **Linting: CI or pre-commit.** `shared-validate.yml` ships markdown, YAML,
+> shell and actionlint checks for consumers that want them in CI; the same
+> checks also run as per-consumer `pre-commit` hooks. Pick one — running both is
+> redundant.
 
 The security scan ships two fast gates on by default — **gitleaks**
 (secret scanning) and **osv-scanner** (dependency vulnerabilities). Both are

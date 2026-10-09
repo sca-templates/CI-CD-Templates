@@ -71,7 +71,7 @@ jobs:
     steps:
       - name: Mint deploy-bot token
         id: app-token
-        uses: sca-templates/CI-CD-Templates/.github/actions/mint-app-token@66755baa61ec4d5134e0f63f693bcff8722c1759
+        uses: sca-templates/CI-CD-Templates/.github/actions/mint-app-token@47b9f3cb040adb8095585511a78c0f3a15079489 # v3.3.1
         with:
           client-id: ${{ secrets.APP_ID }}
           private-key: ${{ secrets.APP_PRIVATE_KEY }}
