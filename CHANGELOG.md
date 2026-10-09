@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.4.0](https://github.com/sca-templates/CI-CD-Templates/compare/v3.3.1...v3.4.0) (2026-10-09)
+
+
+### Features
+
+* **templates:** add validate, npm publish, and release hardening ([#64](https://github.com/sca-templates/CI-CD-Templates/issues/64)) ([65fce1f](https://github.com/sca-templates/CI-CD-Templates/commit/65fce1f129204e2f4326dd0c098a4c17d91fbe8b))
+
 ## [3.3.1](https://github.com/sca-templates/CI-CD-Templates/compare/v3.3.0...v3.3.1) (2026-09-29)
 
 
