@@ -29,6 +29,7 @@ Centralized, reusable CI/CD templates for the [sca-templates](https://github.com
 | Service Promote | `shared-service-promote.yml` | Sync the `dev`/`qa` ArgoCD Application to a selected revision (ArgoCD API, no git refs) |
 | Adopt Prod | `shared-adopt-prod.yml` | Pin the running release tag as the prod version in the GitOps registry |
 | Enforce Latest | `shared-enforce-latest.yml` | Correct GitHub `latest` to the version actually running in prod (optional signed-tag check and forward-only guard) |
+| Restore Latest | `shared-restore-latest.yml` | Put GitHub `latest` back on the previous release (manual rollback or post-release hold) |
 | Auto Label | `shared-auto-label.yml` | Assign labels to PRs from type, changed files, and stack (idempotent, add-only) |
 | Changelog Notify | `shared-changelog-notify.yml` | Post release summaries to Slack or Discord; skips silently when no webhook |
 
