@@ -1,0 +1,46 @@
+---
+name: "Self: Restore Latest"
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag-source:
+        description: "Release to step back from: latest (current GitHub latest), manifest (release-please, self-gated on this push), or explicit"
+        type: choice
+        options:
+          - latest
+          - explicit
+          - manifest
+        default: latest
+      release-tag:
+        description: "Release to step back from when tag-source is explicit (e.g. v3.4.0)"
+        type: string
+        default: ""
+      previous-tag:
+        description: "Release to restore latest to; defaults to the newest published full release other than the tag"
+        type: string
+        default: ""
+      dry-run:
+        description: "Report the restore without changing any release"
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: self-restore-latest-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  restore:
+    name: Restore previous latest
+    uses: ./.github/workflows/shared-restore-latest.yml
+    with:
+      tag-source: ${{ inputs.tag-source }}
+      release-tag: ${{ inputs.release-tag }}
+      previous-tag: ${{ inputs.previous-tag }}
+      dry-run: ${{ inputs.dry-run }}
+    secrets:
+      APP_ID: ${{ secrets.DEPLOY_APP_ID }}
+      APP_PRIVATE_KEY: ${{ secrets.DEPLOY_APP_PRIVATE_KEY }}

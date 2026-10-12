@@ -1,0 +1,326 @@
+---
+# =============================================================================
+# Shared: Restore Latest — put the GitHub `latest` pointer back on the release
+# that preceded a given one.
+# =============================================================================
+#
+# Standalone counterpart to `shared-enforce-latest.yml` (which moves `latest`
+# *forward* to the tag actually deployed). This one only ever moves it
+# *backwards*, and does not read the GitOps registry.
+#
+# Two ways to use it:
+#
+#   * Manual rollback / correction — `tag-source: latest` (or `explicit`):
+#     step back from whatever release currently holds `latest` (or a named
+#     one) to the newest published full release before it.
+#
+#   * Post-release hold — `tag-source: manifest`: run as a job after a
+#     release flow. release-please cuts the tag and its release can claim
+#     `latest`; this job publishes the release (optionally), declines
+#     `latest` on it and re-asserts the previous pointer, so only a separate
+#     promote workflow ever moves the pointer forward. It is the reusable
+#     form of `shared-release-flow.yml`'s `latest-policy: hold`
+#     (`capture` + `finalize`) — and of infra-kubernetes' local jobs before
+#     that.
+#
+# Why the pointer needs an explicit PATCH: `make_latest=false` stores no
+# pointer, so the API falls back to "the most recent non-prerelease release",
+# which is the one just cut. The only write that actually designates a
+# release is `make_latest=true` on an *older* one, and publishing a new
+# release clears that designation — hence it is re-asserted on every run.
+#
+# Why `manifest` self-gates: a reusable workflow does not re-export its
+# callees' outputs at the `workflow_call` level, so a job that follows the
+# release flow cannot read the tag it cut. It reads the tag from the
+# release-please manifest instead, and only acts when that tag points at the
+# very commit of the push (any other push still names the previous release,
+# whose tag points at an older commit). Excluding that tag from the snapshot
+# makes the result correct whether the release already exists or not, and on
+# a re-run.
+
+name: "Shared: Restore Latest"
+
+on:
+  workflow_call:
+    inputs:
+      repo:
+        description: "Repository whose latest release is restored (owner/repo); defaults to the caller"
+        type: string
+        default: ""
+      tag-source:
+        description: "Release to step back from: manifest (release-please, self-gated on this push), latest (current GitHub latest), or explicit"
+        type: string
+        default: "manifest"
+      release-tag:
+        description: "Release to step back from when tag-source is explicit"
+        type: string
+        default: ""
+      manifest-file:
+        description: "release-please manifest read when tag-source is manifest"
+        type: string
+        default: ".release-please-manifest.json"
+      previous-tag:
+        description: "Release to restore latest to; defaults to the newest published full release other than the tag"
+        type: string
+        default: ""
+      publish:
+        description: "Publish the release (draft -> public) and decline latest on it before restoring the previous pointer"
+        type: boolean
+        default: false
+      verify-signed-tag:
+        description: "Verify the release tag carries a valid GPG signature before restoring the pointer"
+        type: boolean
+        default: false
+      gpg-public-key:
+        description: "Path to the trusted release-bot GPG public key, relative to the caller repo"
+        type: string
+        default: ".github/release-bot-gpg.pub"
+      dry-run:
+        description: "Report the restore without changing any release"
+        type: boolean
+        default: false
+    secrets:
+      APP_ID:
+        description: "GitHub App ID for release automation (needs contents: write)"
+        required: true
+      APP_PRIVATE_KEY:
+        description: "GitHub App private key (PEM) for release automation"
+        required: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: restore-latest-${{ inputs.repo || github.repository }}
+  cancel-in-progress: false
+
+jobs:
+  restore:
+    name: Restore previous latest
+    runs-on: ${{ vars.RUNS_ON || 'ubuntu-latest' }}
+    outputs:
+      release-tag: ${{ steps.resolve.outputs.tag }}
+      previous-tag: ${{ steps.resolve.outputs.previous }}
+      current-latest: ${{ steps.restore.outputs.current-latest }}
+      changed: ${{ steps.restore.outputs.changed }}
+    steps:
+      - name: Mint release-bot token
+        id: app-token
+        uses: sca-templates/CI-CD-Templates/.github/actions/mint-app-token@47b9f3cb040adb8095585511a78c0f3a15079489 # v3.3.1
+        with:
+          client-id: ${{ secrets.APP_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: "${{ inputs.repo || github.repository }}"
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          token: ${{ steps.app-token.outputs.token }}
+          fetch-depth: 0
+
+      - name: Resolve the release to step back from and the previous tag
+        id: resolve
+        shell: bash
+        env:
+          repo: ${{ inputs.repo || github.repository }}
+          tag_source: ${{ inputs.tag-source }}
+          explicit_tag: ${{ inputs.release-tag }}
+          manifest_file: ${{ inputs.manifest-file }}
+          explicit_previous: ${{ inputs.previous-tag }}
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: |
+          set -euo pipefail
+          case "$tag_source" in
+            manifest|latest|explicit) ;;
+            *) echo "::error::tag-source must be manifest, latest or explicit (got '$tag_source')"; exit 1 ;;
+          esac
+
+          TAG="$explicit_tag"
+          if [ "$tag_source" = "manifest" ]; then
+            if [ ! -f "$manifest_file" ]; then
+              echo "::error::manifest ${manifest_file} not found; use tag-source explicit or latest"
+              exit 1
+            fi
+            TAG="v$(jq -r '."."' "$manifest_file")"
+            # Self-gating: a release was cut by this push only if the manifest's
+            # tag points at this very commit; on any other push the manifest still
+            # names the previous release, whose tag points at an older commit. An
+            # empty `tag` output parks the rest of the job.
+            if ! git rev-parse --verify --quiet "refs/tags/${TAG}^{commit}" >/dev/null; then
+              echo "::notice::no release tag ${TAG} in this checkout; nothing to restore"
+              echo "tag=" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+            if [ "$(git rev-parse "refs/tags/${TAG}^{commit}")" != "${GITHUB_SHA}" ]; then
+              echo "::notice::${TAG} does not point at this commit; no release was cut by this push"
+              echo "tag=" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+          elif [ "$tag_source" = "latest" ]; then
+            TAG="$(gh api "repos/${repo}/releases/latest" --jq '.tag_name // empty' 2>/dev/null || true)"
+          fi
+          if [ -z "$TAG" ]; then
+            echo "::error::could not resolve a release tag (tag-source '${tag_source}')"
+            exit 1
+          fi
+
+          # The tag this run steps back from is excluded, which is what makes the
+          # snapshot correct in every order and on a re-run: whether the release
+          # already exists or not, the answer is the release that was `latest`
+          # before it. Sorted by publishedAt, not the derived isLatest field.
+          RELEASES="$(gh release list --repo "$repo" --limit 100 \
+            --json tagName,isDraft,isPrerelease,publishedAt)"
+          PREVIOUS="$explicit_previous"
+          if [ -z "$PREVIOUS" ]; then
+            PREVIOUS="$(printf '%s' "$RELEASES" | jq -r --arg tag "$TAG" '
+              [ .[] | select(.isDraft == false and .isPrerelease == false and .tagName != $tag) ]
+              | sort_by(.publishedAt) | reverse | .[0].tagName // empty')"
+          fi
+          if [ -n "$PREVIOUS" ] && [ "$PREVIOUS" = "$TAG" ]; then
+            echo "::error::previous tag equals the release being stepped back from (${TAG})"
+            exit 1
+          fi
+          if [ -z "$PREVIOUS" ]; then
+            echo "::notice::no published release besides ${TAG}; nothing to restore"
+          else
+            echo "::notice::previous latest: ${PREVIOUS}"
+          fi
+          {
+            echo "tag=${TAG}"
+            echo "previous=${PREVIOUS}"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Verify the release-bot signature on the tag
+        if: ${{ steps.resolve.outputs.tag != '' && inputs.verify-signed-tag }}
+        shell: bash
+        env:
+          TAG: ${{ steps.resolve.outputs.tag }}
+          GPG_KEY: ${{ inputs.gpg-public-key }}
+        run: |
+          set -euo pipefail
+          test "$(git cat-file -t "refs/tags/${TAG}")" = tag \
+            || { echo "::error::'${TAG}' is not an annotated tag; the sign-tag job did not run"; exit 1; }
+          if [ ! -f "${GPG_KEY}" ]; then
+            echo "::error::release-bot GPG public key not found at ${GPG_KEY}"
+            exit 1
+          fi
+          gpg --batch --import "${GPG_KEY}"
+          git tag -v "${TAG}" \
+            || { echo "::error::'${TAG}' is not signed by the release bot; refusing to restore"; exit 1; }
+
+      - name: Restore the previous latest
+        id: restore
+        if: steps.resolve.outputs.tag != ''
+        shell: bash
+        env:
+          repo: ${{ inputs.repo || github.repository }}
+          tag: ${{ steps.resolve.outputs.tag }}
+          previous: ${{ steps.resolve.outputs.previous }}
+          publish: ${{ inputs.publish }}
+          dry_run: ${{ inputs.dry-run }}
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: |
+          set -euo pipefail
+          RELEASES="repos/${repo}/releases"
+
+          CURRENT="$(gh api "repos/${repo}/releases/latest" --jq '.tag_name // empty' 2>/dev/null || true)"
+          echo "current-latest=$CURRENT" >> "$GITHUB_OUTPUT"
+
+          if [ -z "$previous" ]; then
+            # An empty snapshot is legitimate only for the very first release; if
+            # any other full release exists, the snapshot failed and guessing a
+            # target is worse than stopping.
+            OTHERS="$(gh api "${RELEASES}?per_page=100" --jq \
+              "[.[] | select(.tag_name != \"${tag}\" and .draft == false and .prerelease == false)] | length")"
+            if [ "$OTHERS" != "0" ]; then
+              echo "::error::no previous release found, but ${OTHERS} published release(s) exist; refusing to guess"
+              exit 1
+            fi
+            echo "::notice::${tag} is the first release; there is no previous latest to restore"
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          PREVIOUS_ID=""
+          for attempt in 1 2 3 4 5; do
+            PREVIOUS_ID="$(gh api "${RELEASES}?per_page=100" \
+              --jq "[.[] | select(.tag_name == \"${previous}\")][0].id // empty")"
+            [ -n "$PREVIOUS_ID" ] && break
+            echo "::debug::no release entry for ${previous} yet (attempt ${attempt})"
+            sleep 3
+          done
+          if [ -z "$PREVIOUS_ID" ]; then
+            echo "::error::previous release ${previous} has no release entry"
+            exit 1
+          fi
+
+          # A draft cannot hold `latest`, and a pre-release may not be designated
+          # as one, so the release being stepped back from is published off-latest
+          # only when asked and only when it is a full release.
+          TAG_INFO=""
+          for attempt in 1 2 3 4 5; do
+            TAG_INFO="$(gh api "${RELEASES}?per_page=100" \
+              --jq "[.[] | select(.tag_name == \"${tag}\")] | .[0] // empty")"
+            [ -n "$TAG_INFO" ] && break
+            echo "::debug::no release entry for ${tag} yet (attempt ${attempt})"
+            sleep 3
+          done
+          if [ -z "$TAG_INFO" ]; then
+            echo "::error::release ${tag} has no release entry"
+            exit 1
+          fi
+          PRERELEASE="$(printf '%s' "$TAG_INFO" | jq -r '.prerelease // empty')"
+          TAG_ID="$(printf '%s' "$TAG_INFO" | jq -r '.id // empty')"
+          NEEDS_PUBLISH="false"
+          [ "$publish" = "true" ] && [ "$PRERELEASE" != "true" ] && NEEDS_PUBLISH="true"
+
+          CHANGED="false"
+          [ "$CURRENT" != "$previous" ] && CHANGED="true"
+
+          if [ "$dry_run" = "true" ]; then
+            echo "::warning::dry-run — release state NOT changed"
+            echo "changed=${CHANGED}" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          if [ "$NEEDS_PUBLISH" = "true" ]; then
+            if [ -z "$TAG_ID" ]; then
+              echo "::error::release ${tag} has no release entry; cannot publish"
+              exit 1
+            fi
+            # One PATCH, so the release never passes through a state where it is
+            # both public and latest.
+            gh api --method PATCH "${RELEASES}/${TAG_ID}" \
+              --input - <<< '{"draft": false, "make_latest": "false"}' >/dev/null
+            echo "::notice::${tag} published, held off latest"
+          fi
+
+          # The only write that actually moves the pointer.
+          gh api --method PATCH "${RELEASES}/${PREVIOUS_ID}" \
+            --input - <<< '{"make_latest": "true"}' >/dev/null
+          echo "::notice::latest restored to ${previous} in ${repo}"
+          {
+            echo "changed=${CHANGED}"
+            echo "expect=${previous}"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Verify where latest ended up
+        if: steps.resolve.outputs.tag != ''
+        shell: bash
+        env:
+          repo: ${{ inputs.repo || github.repository }}
+          dry_run: ${{ inputs.dry-run }}
+          EXPECT: ${{ steps.restore.outputs.expect }}
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: |
+          set -euo pipefail
+          if [ "$dry_run" = "true" ] || [ -z "$EXPECT" ]; then
+            echo "::notice::no pointer change asserted; skipping verification"
+            exit 0
+          fi
+          LATEST="$(gh api "repos/${repo}/releases/latest" --jq '.tag_name')"
+          if [ "$LATEST" != "$EXPECT" ]; then
+            echo "::error::latest is ${LATEST}, expected ${EXPECT}; the pointer was not restored"
+            exit 1
+          fi
+          echo "::notice::latest = ${LATEST}, as intended"

@@ -14,6 +14,7 @@ All shared workflows live flat in `.github/workflows/` (GitHub does not support 
 | Service Promote | `shared-service-promote.yml` | Sync the service's dev/qa ArgoCD Application to a selected branch/tag/commit via the ArgoCD API — no PR and no `deploy/*` ref; QA pauses for human approval when Required reviewers are configured |
 | Adopt Prod | `shared-adopt-prod.yml` | Pin a release tag as the version running in prod (GitOps registry, PR or direct commit) |
 | Enforce Latest | `shared-enforce-latest.yml` | Correct GitHub `latest` release to the version actually deployed in prod (optional signed-tag check and forward-only guard) |
+| Restore Latest | `shared-restore-latest.yml` | Put GitHub `latest` back on the release before a given one — manual rollback or a post-release hold that keeps only a promote workflow moving the pointer forward |
 | Auto Label | `shared-auto-label.yml` | Assign labels to PRs from type, changed files, and stack (idempotent, add-only) |
 | Changelog Notify | `shared-changelog-notify.yml` | Post release summaries to Slack or Discord; skips silently when no webhook |
 | Node.js | `stack-node-js.yml` | JavaScript/Express: install, lint, test; optional publish |
@@ -286,6 +287,44 @@ In the per-service flow this runs **after** the prod `Sync` has applied the
 version, via [docs/examples/deploy-prod.yml](examples/deploy-prod.yml)
 (`action: mark-latest`). See [service-release-model.md](service-release-model.md)
 for the full deployment contract and the bots involved.
+
+### Restore Latest (latest = previous)
+
+The standalone counterpart to Enforce Latest: it only ever moves `latest`
+*backwards*, to the release that preceded a given one. It does not read the
+GitOps registry. Two ways to use it:
+
+- **Manual rollback** — `tag-source: latest` steps back from whatever release
+  currently holds `latest`; `tag-source: explicit` with `release-tag` steps back
+  from a named one. The target is the newest published full release other than
+  the tag, or `previous-tag` when set.
+- **Post-release hold** — `tag-source: manifest` (the default) reads the
+  release-please manifest and only acts when its tag points at the commit of the
+  push, so it can run as a job *after* a release flow. It publishes the release
+  (`publish: true`, `make_latest=false`), re-asserts the previous pointer, and
+  verifies it — the reusable form of `shared-release-flow.yml`'s
+  `latest-policy: hold`. Only a promote workflow (Enforce Latest) then ever moves
+  the pointer forward.
+
+```yaml
+jobs:
+  release:
+    uses: sca-templates/CI-CD-Templates/.github/workflows/shared-release-flow.yml@main
+    secrets: inherit
+
+  hold:
+    needs: release
+    uses: sca-templates/CI-CD-Templates/.github/workflows/shared-restore-latest.yml@main
+    with:
+      manifest-file: .release-please-manifest.json
+    secrets: inherit
+```
+
+`dry-run: true` reports without mutating. `verify-signed-tag: true` imports the
+release-bot GPG public key (`gpg-public-key`, default
+`.github/release-bot-gpg.pub`) and runs `git tag -v` on the tag before restoring.
+
+Outputs: `release-tag`, `previous-tag`, `current-latest`, `changed`.
 
 ### Auto Label
 
