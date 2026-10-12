@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.5.0](https://github.com/sca-templates/CI-CD-Templates/compare/v3.4.0...v3.5.0) (2026-10-12)
+
+
+### Features
+
+* **workflows:** add shared-restore-latest workflow ([#66](https://github.com/sca-templates/CI-CD-Templates/issues/66)) ([0bdbd52](https://github.com/sca-templates/CI-CD-Templates/commit/0bdbd52e726136959777a4df5c86eff44507d32b))
+
 ## [3.4.0](https://github.com/sca-templates/CI-CD-Templates/compare/v3.3.1...v3.4.0) (2026-10-09)
 
 
