@@ -85,7 +85,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Set up the project
-        uses: sca-templates/CI-CD-Templates/.github/actions/setup-node-project@47b9f3cb040adb8095585511a78c0f3a15079489 # v3.3.1
+        uses: sca-templates/CI-CD-Templates/.github/actions/setup-node-project@684819efa838ed7f653723f9f58ed18c48697b37 # v3.5.0
         with:
           node-version: ${{ inputs.node-version }}
           working-directory: ${{ inputs.working-directory }}
@@ -104,7 +104,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Set up the project
-        uses: sca-templates/CI-CD-Templates/.github/actions/setup-node-project@47b9f3cb040adb8095585511a78c0f3a15079489 # v3.3.1
+        uses: sca-templates/CI-CD-Templates/.github/actions/setup-node-project@684819efa838ed7f653723f9f58ed18c48697b37 # v3.5.0
         with:
           node-version: ${{ inputs.node-version }}
           working-directory: ${{ inputs.working-directory }}
@@ -123,7 +123,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Set up the project
-        uses: sca-templates/CI-CD-Templates/.github/actions/setup-node-project@47b9f3cb040adb8095585511a78c0f3a15079489 # v3.3.1
+        uses: sca-templates/CI-CD-Templates/.github/actions/setup-node-project@684819efa838ed7f653723f9f58ed18c48697b37 # v3.5.0
         with:
           node-version: ${{ inputs.node-version }}
           working-directory: ${{ inputs.working-directory }}
@@ -142,7 +142,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Set up the project
-        uses: sca-templates/CI-CD-Templates/.github/actions/setup-node-project@47b9f3cb040adb8095585511a78c0f3a15079489 # v3.3.1
+        uses: sca-templates/CI-CD-Templates/.github/actions/setup-node-project@684819efa838ed7f653723f9f58ed18c48697b37 # v3.5.0
         with:
           node-version: ${{ inputs.node-version }}
           working-directory: ${{ inputs.working-directory }}
@@ -164,7 +164,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Set up the project
-        uses: sca-templates/CI-CD-Templates/.github/actions/setup-node-project@47b9f3cb040adb8095585511a78c0f3a15079489 # v3.3.1
+        uses: sca-templates/CI-CD-Templates/.github/actions/setup-node-project@684819efa838ed7f653723f9f58ed18c48697b37 # v3.5.0
         with:
           node-version: ${{ inputs.node-version }}
           working-directory: ${{ inputs.working-directory }}
