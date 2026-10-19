@@ -123,7 +123,7 @@ jobs:
 
       - name: Sync ArgoCD app
         if: ${{ !inputs.dry-run }}
-        uses: sca-templates/CI-CD-Templates/.github/actions/argocd-app-sync@47b9f3cb040adb8095585511a78c0f3a15079489 # v3.3.1
+        uses: sca-templates/CI-CD-Templates/.github/actions/argocd-app-sync@684819efa838ed7f653723f9f58ed18c48697b37 # v3.5.0
         with:
           server: ${{ secrets.ARGOCD_SERVER || vars.ARGOCD_SERVER }}
           token: ${{ secrets.ARGOCD_TOKEN }}
